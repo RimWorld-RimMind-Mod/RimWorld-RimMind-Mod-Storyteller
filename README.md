@@ -12,14 +12,15 @@ RimMind 是一套 AI 驱动的 RimWorld 模组套件，通过接入大语言模�
 |------|------|------|--------|
 | RimMind-Core | API 客户端、请求调度、上下文打包 | Harmony | [RimMind-Core 仓库](https://github.com/RimWorld-RimMind-Mod/RimWorld-RimMind-Mod-Core) |
 | RimMind-Actions | AI 控制小人的动作执行库 | Core | [RimMind-Actions 仓库](https://github.com/RimWorld-RimMind-Mod/RimWorld-RimMind-Mod-Actions) |
-| RimMind-Advisor | AI 扮演小人做出工作决策 | Core, Actions | [RimMind-Advisor 仓库](https://github.com/RimWorld-RimMind-Mod/RimWorld-RimMind-Mod-Advisor) |
+| RimMind-Advisor | AI 扮演小人做出工作决策 | Core（Actions 可选） | [RimMind-Advisor 仓库](https://github.com/RimWorld-RimMind-Mod/RimWorld-RimMind-Mod-Advisor) |
 | RimMind-Dialogue | AI 驱动的对话系统 | Core | [RimMind-Dialogue 仓库](https://github.com/RimWorld-RimMind-Mod/RimWorld-RimMind-Mod-Dialogue) |
 | RimMind-Memory | 记忆采集与上下文注入 | Core | [RimMind-Memory 仓库](https://github.com/RimWorld-RimMind-Mod/RimWorld-RimMind-Mod-Memory) |
 | RimMind-Personality | AI 生成人格与想法 | Core | [RimMind-Personality 仓库](https://github.com/RimWorld-RimMind-Mod/RimWorld-RimMind-Mod-Personality) |
 | **RimMind-Storyteller** | **AI 叙事者，智能选择事件** | Core | [RimMind-Storyteller 仓库](https://github.com/RimWorld-RimMind-Mod/RimWorld-RimMind-Mod-Storyteller) |
 
 ```
-Core ── Actions ── Advisor
+Core ── Actions
+  ├── Advisor
   ├── Dialogue
   ├── Memory
   ├── Personality
@@ -116,6 +117,14 @@ AI 选择威胁事件时，通过审批页面通知玩家。ThreatBig 显示"叙
 
 通过设置页的"叙事者风格 Prompt"自定义 AI 行为，例如"你是一个冷酷的叙事者，喜欢制造极端困境"。
 
+## 实现与测试入口
+
+`StorytellerComp_RimMindDirector` 保留间隔门控，`StorytellerRequestCoordinator` 通过 `RimMindAPI.Request.Send` 发起 `ScenarioStoryteller` 请求。`RimMindIncidentSelector` 直接检查解析结果、事件 Def 和 `CanFireNow`；倍率限制和威胁通知条件由 `IncidentSelectionPolicy` 保留。
+
+五个注册上下文 provider 都读取世界级数据，只按 Storyteller 场景隔离；地图 NPC 和 `NPC-storyteller` 后备身份的 `PawnId=0` 不会阻止任务、状态、对话、反应或叙述上下文。阅读地图见 [事件请求切片](Source/Storyteller/README.md)。
+
+[测试说明](Tests/README.md) 列出真实 provider 和事件选择器的行为覆盖。Storyteller 全部测试项目累计最多 999 个发现用例，参数化数据行逐行计数；测试验证真实行为、失败边界和模块协作，不复制生产算法或锁定私有实现形状，不为压低数量合并无关场景。
+
 ## 设置项
 
 | 设置 | 默认值 | 说明 |
@@ -182,7 +191,7 @@ RimMind is an AI-driven RimWorld mod suite that connects to Large Language Model
 |--------|------|------------|--------|
 | RimMind-Core | API client, request dispatch, context packaging | Harmony | [RimMind-Core repo](https://github.com/RimWorld-RimMind-Mod/RimWorld-RimMind-Mod-Core) |
 | RimMind-Actions | AI-controlled pawn action execution | Core | [RimMind-Actions repo](https://github.com/RimWorld-RimMind-Mod/RimWorld-RimMind-Mod-Actions) |
-| RimMind-Advisor | AI role-plays colonists for work decisions | Core, Actions | [RimMind-Advisor repo](https://github.com/RimWorld-RimMind-Mod/RimWorld-RimMind-Mod-Advisor) |
+| RimMind-Advisor | AI role-plays colonists for work decisions | Core (Actions optional) | [RimMind-Advisor repo](https://github.com/RimWorld-RimMind-Mod/RimWorld-RimMind-Mod-Advisor) |
 | RimMind-Dialogue | AI-driven dialogue system | Core | [RimMind-Dialogue repo](https://github.com/RimWorld-RimMind-Mod/RimWorld-RimMind-Mod-Dialogue) |
 | RimMind-Memory | Memory collection & context injection | Core | [RimMind-Memory repo](https://github.com/RimWorld-RimMind-Mod/RimWorld-RimMind-Mod-Memory) |
 | RimMind-Personality | AI-generated personality & thoughts | Core | [RimMind-Personality repo](https://github.com/RimWorld-RimMind-Mod/RimWorld-RimMind-Mod-Personality) |
@@ -240,6 +249,14 @@ cd RimWorld-RimMind-Mod-Storyteller
 - **Memory Integration**: When RimMind-Memory is installed, the storyteller reads colony narration history for more coherent event selection
 - **Event Notification**: When AI selects a threat event, notify the player to choose an emotional reaction that affects narrative tension
 - **Custom Narrative Style**: Define AI behavior through custom prompts
+
+## Implementation and tests
+
+`StorytellerComp_RimMindDirector` owns interval gates; `StorytellerRequestCoordinator` sends `ScenarioStoryteller` requests through `RimMindAPI.Request.Send`. `RimMindIncidentSelector` directly validates parsing, definitions, and `CanFireNow`; `IncidentSelectionPolicy` retains multiplier bounds and threat-notification conditions.
+
+All five registered context providers read world-level data and guard only the Storyteller scenario. Map NPCs and the `NPC-storyteller` fallback are valid with `PawnId=0`. See the [incident-request map](Source/Storyteller/README.md) and [test guide](Tests/README.md).
+
+All Storyteller test projects combined allow at most 999 discovered cases, counting each parameterized row. Verify real behavior, failures, and module collaboration; do not copy production algorithms, constrain private implementation shape, or merge unrelated scenarios to reduce counts.
 
 ## Settings
 

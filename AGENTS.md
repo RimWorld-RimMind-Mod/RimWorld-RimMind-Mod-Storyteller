@@ -43,7 +43,7 @@ Source/
 │   ├── StorytellerRequestCoordinator.cs                        请求派发、回调终态与事件链记录
 │   ├── StorytellerRequestState.cs                              Token、pending请求和pending结果状态
 │   ├── StorytellerNotificationService.cs                       玩家反应通知与张力回调
-│   ├── IncidentSelectionPolicy.cs                              事件选择与通知纯策略
+│   ├── IncidentSelectionPolicy.cs                              点数倍率范围与威胁通知策略
 │   ├── StorytellerComp_RimMindFallback.cs                      回退事件生成器
 │   ├── StorytellerCompProperties_RimMindDirector.cs            Director Def属性
 │   ├── StorytellerCompProperties_RimMindFallback.cs            Fallback Def属性
@@ -55,7 +55,7 @@ Source/
 │   ├── TensionMath.cs                                          张力衰减/Clamp01 纯逻辑(可单测)
 │   └── IncidentResponse.cs                                     IncidentResponse DTO
 ├── Extensions/
-│   ├── PawnLookup.cs                                           共享Pawn查找(WorldPawns→FreeColonists)
+│   ├── StorytellerContextPolicy.cs                             自定义指令与生成任务指令组合
 │   ├── StorytellerContextBuilder.cs                            难度/威胁/张力文本构建(6个helper，3个纯逻辑可单测)
 │   ├── StorytellerIncidentSkipCheck.cs                         ISkipCheck 实现
 │   ├── StorytellerModCooldown.cs                               IModCooldown 实现
@@ -111,7 +111,7 @@ StorytellerComp_RimMindDirector.MakeIntervalIncidents
 | storyteller_dialogue | L3_State | 0.5 | 近期对话摘要 |
 | storyteller_recent_incidents | L4_History | 0.7 | Memory模组近期叙述(`RimMindAPI.Memory`) |
 
-所有注册均包含 `if (ContextKeyRegistry.CurrentScenario != ScenarioIds.Storyteller) return new List<ContextEntry>();` 守卫。
+所有注册均以 `ctx.Scenario != RimMindAPI.Context.ScenarioStoryteller` 返回 `null`。这五个 provider 读取世界级数据，不查找 Pawn，也不要求正数 `PawnId`；地图 NPC 与 `NPC-storyteller` 后备身份的 `PawnId=0` 是有效输入。
 
 ## 上下文注入流程
 
@@ -144,12 +144,24 @@ Storyteller 不访问 Memory 的具体 Store、WorldComponent 或设置单例。
 - 过期请求Token必须忽略；成功/失败Tick只由 `StorytellerRequestState` 更新
 - `StorytellerMemory` 持有事件历史、对话、反应、张力和事件链的持久状态
 - 所有ContextKey注册必须包含场景守卫
+- `RimMindIncidentSelector` 直接守卫解析失败、未知 Def 和 `CanFireNow=false`；参数倍率范围与威胁通知条件仍由 `IncidentSelectionPolicy` 负责。
 - 禁止使用 `[Obsolete]` 的 `RegisterPawnContextProvider` / `RegisterStaticProvider`
 - 禁止直接访问 `Core.Internal` 命名空间
 
 ## 已知问题
 
 1. `IncidentHistoryRecord` 兼容字段 `_compat1`/`_compat2` 反序列化后未读取（存档兼容，可保留）
+
+## Smallest useful verification
+
+从仓库根目录执行：
+
+```powershell
+dotnet test RimMind-Storyteller/Tests/RimMindStoryteller.Tests.csproj -c Release
+dotnet build RimMind-Storyteller/Source/RimMindStoryteller.csproj -c Release
+```
+
+Storyteller 全部测试项目累计最多 999 个发现用例（少于 1000）；参数化测试每个数据行计入总数。测试验证真实行为、失败边界和模块协作；替身仅隔离外部依赖。禁止只验证 mock、复制生产算法或锁定私有实现形状；不为压低数量合并无关场景。行为覆盖与边界见 `Tests/README.md`。
 
 ## 操作边界
 

@@ -18,15 +18,10 @@ namespace RimMind.Storyteller
                 "storyteller_dialogue", ContextLayer.L3_State, 0.5f,
                 async (ctx, ct) =>
                 {
-                    if (!StorytellerContextPolicy.IsApplicable(
-                            ctx.Scenario,
-                            RimMindAPI.Context.ScenarioStoryteller,
-                            ctx.PawnId))
+                    if (ctx.Scenario != RimMindAPI.Context.ScenarioStoryteller)
                     {
                         return null;
                     }
-                    var pawn = PawnLookup.FindPawnById(ctx.PawnId);
-                    if (pawn == null) return null;
                     var mem = StorytellerMemory.Instance;
                     if (mem == null) return null;
                     string dialogue = mem.GetRecentDialogueSummary(5);
@@ -40,10 +35,7 @@ namespace RimMind.Storyteller
                 "storyteller_task", ContextLayer.L0_Static, 0.95f,
                 async (ctx, ct) =>
                 {
-                    if (!StorytellerContextPolicy.IsApplicable(
-                            ctx.Scenario,
-                            RimMindAPI.Context.ScenarioStoryteller,
-                            ctx.PawnId))
+                    if (ctx.Scenario != RimMindAPI.Context.ScenarioStoryteller)
                     {
                         return null;
                     }
@@ -66,15 +58,10 @@ namespace RimMind.Storyteller
                 "storyteller_context", ContextLayer.L1_Baseline, 0.85f,
                 async (ctx, ct) =>
                 {
-                    if (!StorytellerContextPolicy.IsApplicable(
-                            ctx.Scenario,
-                            RimMindAPI.Context.ScenarioStoryteller,
-                            ctx.PawnId))
+                    if (ctx.Scenario != RimMindAPI.Context.ScenarioStoryteller)
                     {
                         return null;
                     }
-                    var pawn = PawnLookup.FindPawnById(ctx.PawnId);
-                    if (pawn == null) return null;
                     var mem = StorytellerMemory.Instance;
                     if (mem == null) return null;
                     var sb = new StringBuilder();
@@ -98,15 +85,10 @@ namespace RimMind.Storyteller
                 "storyteller_reactions", ContextLayer.L1_Baseline, 0.8f,
                 async (ctx, ct) =>
                 {
-                    if (!StorytellerContextPolicy.IsApplicable(
-                            ctx.Scenario,
-                            RimMindAPI.Context.ScenarioStoryteller,
-                            ctx.PawnId))
+                    if (ctx.Scenario != RimMindAPI.Context.ScenarioStoryteller)
                     {
                         return null;
                     }
-                    var pawn = PawnLookup.FindPawnById(ctx.PawnId);
-                    if (pawn == null) return null;
                     var mem = StorytellerMemory.Instance;
                     if (mem == null) return null;
                     string? text = mem.ConsumedReactionsText;
@@ -118,15 +100,10 @@ namespace RimMind.Storyteller
                 "storyteller_recent_incidents", ContextLayer.L4_History, 0.7f,
                 async (ctx, ct) =>
                 {
-                    if (!StorytellerContextPolicy.IsApplicable(
-                            ctx.Scenario,
-                            RimMindAPI.Context.ScenarioStoryteller,
-                            ctx.PawnId))
+                    if (ctx.Scenario != RimMindAPI.Context.ScenarioStoryteller)
                     {
                         return null;
                     }
-                    var pawn = PawnLookup.FindPawnById(ctx.PawnId);
-                    if (pawn == null) return null;
                     var narrations = RimMindAPI.Memory.GetRecentNarrations(5);
                     if (narrations.Count == 0) return null;
 
