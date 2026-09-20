@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LanguageData>
   <!-- RimMindStorytellerMod.cs -->
+  <RimMind.Storyteller.SettingsTitle>RimMind - Storyteller</RimMind.Storyteller.SettingsTitle>
   <RimMind.Storyteller.UI.TabLabel>Storyteller</RimMind.Storyteller.UI.TabLabel>
   <RimMind.Storyteller.Prompt.StorytellerStateHeader>[RimMind Storyteller]</RimMind.Storyteller.Prompt.StorytellerStateHeader>
   <RimMind.Storyteller.Dialogue.StorytellerDialogueHeader>[RimMind Storyteller Dialogue]</RimMind.Storyteller.Dialogue.StorytellerDialogueHeader>

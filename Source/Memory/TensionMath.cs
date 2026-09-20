@@ -2,7 +2,7 @@ namespace RimMind.Storyteller.Memory
 {
     public static class TensionMath
     {
-        public const int TicksPerDay = 60000;
+        public const int TicksPerDay = RimMind.Domain.Common.RimMindTime.TicksPerDay;
 
         public static float Clamp01(float value)
         {
@@ -16,7 +16,7 @@ namespace RimMind.Storyteller.Memory
         /// </summary>
         public static int TicksToDay(int tick)
         {
-            return tick / TicksPerDay + 1;
+            return RimMind.Domain.Common.RimMindTime.TicksToDay(tick);
         }
 
         public static float ComputeDecay(float currentTension, float decayPerDay, int ticksElapsed)

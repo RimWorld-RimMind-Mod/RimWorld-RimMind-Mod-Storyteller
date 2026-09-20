@@ -10,7 +10,7 @@ namespace RimMind.Storyteller
 {
     internal static class StorytellerContextProviderRegistrar
     {
-        private const string ModId = "RimMind.Storyteller";
+        private const string ModId = RimMind.Application.Common.Constants.RimMindOwnerConsts.StorytellerModId;
 
         internal static void RegisterAll()
         {
@@ -111,7 +111,7 @@ namespace RimMind.Storyteller
                     narrationText.AppendLine("RimMind.Storyteller.Prompt.RecentIncidents".Translate());
                     foreach (var narration in narrations)
                     {
-                        int day = narration.Tick / 60000 + 1;
+                        int day = RimMind.Domain.Common.RimMindTime.TicksToDay(narration.Tick);
                         narrationText.AppendLine($"[Day {day}] {narration.Content}");
                     }
                     return narrationText.ToString().TrimEnd();
