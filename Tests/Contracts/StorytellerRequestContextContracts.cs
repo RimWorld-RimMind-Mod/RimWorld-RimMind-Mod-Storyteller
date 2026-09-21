@@ -24,6 +24,18 @@ namespace RimMind.Storyteller.Tests.Contracts
             Assert.Equal(0.44f, TensionMath.ComputeDecay(0.5f, 0.03f, 120000), 3);
             Assert.Equal(1, TensionMath.TicksToDay(0));
             Assert.Equal(2, TensionMath.TicksToDay(60000));
+
+            // Below threshold: adaptive decay matches linear decay
+            Assert.Equal(
+                TensionMath.ComputeDecay(0.5f, 0.03f, 120000),
+                TensionMath.ComputeAdaptiveDecay(0.5f, 0.03f, 120000),
+                3);
+
+            // Extreme high tension: adaptive soft-landing decay accelerates
+            float normalDecay = TensionMath.ComputeDecay(0.95f, 0.03f, 60000);
+            float adaptiveDecay = TensionMath.ComputeAdaptiveDecay(0.95f, 0.03f, 60000);
+            Assert.True(adaptiveDecay < normalDecay);
+            Assert.True(adaptiveDecay > 0.80f);
         }
 
         private static void CustomInstructionComposition()
