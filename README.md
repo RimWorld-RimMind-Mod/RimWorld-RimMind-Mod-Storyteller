@@ -12,14 +12,15 @@ RimMind 是一套 AI 驱动的 RimWorld 模组套件，通过接入大语言模�
 |------|------|------|--------|
 | RimMind-Core | API 客户端、请求调度、上下文打包 | Harmony | [RimMind-Core 仓库](https://github.com/RimWorld-RimMind-Mod/RimWorld-RimMind-Mod-Core) |
 | RimMind-Actions | AI 控制小人的动作执行库 | Core | [RimMind-Actions 仓库](https://github.com/RimWorld-RimMind-Mod/RimWorld-RimMind-Mod-Actions) |
-| RimMind-Advisor | AI 扮演小人做出工作决策 | Core, Actions | [RimMind-Advisor 仓库](https://github.com/RimWorld-RimMind-Mod/RimWorld-RimMind-Mod-Advisor) |
+| RimMind-Advisor | AI 扮演小人做出工作决策 | Core（Actions 可选） | [RimMind-Advisor 仓库](https://github.com/RimWorld-RimMind-Mod/RimWorld-RimMind-Mod-Advisor) |
 | RimMind-Dialogue | AI 驱动的对话系统 | Core | [RimMind-Dialogue 仓库](https://github.com/RimWorld-RimMind-Mod/RimWorld-RimMind-Mod-Dialogue) |
 | RimMind-Memory | 记忆采集与上下文注入 | Core | [RimMind-Memory 仓库](https://github.com/RimWorld-RimMind-Mod/RimWorld-RimMind-Mod-Memory) |
 | RimMind-Personality | AI 生成人格与想法 | Core | [RimMind-Personality 仓库](https://github.com/RimWorld-RimMind-Mod/RimWorld-RimMind-Mod-Personality) |
 | **RimMind-Storyteller** | **AI 叙事者，智能选择事件** | Core | [RimMind-Storyteller 仓库](https://github.com/RimWorld-RimMind-Mod/RimWorld-RimMind-Mod-Storyteller) |
 
 ```
-Core ── Actions ── Advisor
+Core ── Actions
+  ├── Advisor
   ├── Dialogue
   ├── Memory
   ├── Personality
@@ -74,7 +75,6 @@ cd RimWorld-RimMind-Mod-Storyteller
 RimMind Director 是一个全新的叙事者，取代传统的 Cassandra/Randy/Phoebe：
 
 - **MTB 随机触发**：按平均间隔随机向 AI 发送当前局势
-- **候选事件**：从可触发事件中筛选候选，按 FallbackMode 加权排序
 - **智能选择**：AI 根据剧情连贯性、挑战平衡、戏剧性选择最佳事件
 - **历史记忆**：记录已触发事件，避免重复和冷却期冲突
 - **难度感知**：根据 threatScale、allowBigThreats 等六档难度指导 AI 行为
@@ -101,7 +101,7 @@ AI 不可用或 Director 不健康（近期无成功或刚失败）时，自动�
 
 ### 叙事者对话
 
-通过祭坛建筑与叙事者对话，AI 以神秘睿智的口吻回应。对话含机密信息段落（下次事件时间、难度参数），AI 严格遵守不泄露约束。对话记录自动推送到 StorytellerMemory 和 RimMind-Memory（如已安装）。
+通过祭坛建筑与叙事者对话，AI 以神秘睿智的口吻回应。对话含机密信息段落（下次事件时间、难度参数），AI 严格遵守不泄露约束。对话记录自动推送到 StorytellerMemory 和 RimMind-Memory（如已安装）。安装 Memory 模组后，叙事者还能读取殖民地的历史叙述，使事件选择更具叙事连贯性。
 
 ### 事件通知
 
@@ -113,13 +113,17 @@ AI 选择威胁事件时，通过审批页面通知玩家。ThreatBig 显示"叙
 
 反应将记录到叙事者记忆，影响未来事件选择。可在设置中关闭此功能。
 
-### 殖民地快照
-
-追踪人口和财富变化，事件后果差异注入 Prompt 供 AI 参考。
-
 ### 自定义叙事风格
 
 通过设置页的"叙事者风格 Prompt"自定义 AI 行为，例如"你是一个冷酷的叙事者，喜欢制造极端困境"。
+
+## 实现与测试入口
+
+`StorytellerComp_RimMindDirector` 保留间隔门控，`StorytellerRequestCoordinator` 通过 `RimMindAPI.Request.Send` 发起 `ScenarioStoryteller` 请求。`RimMindIncidentSelector` 直接检查解析结果、事件 Def 和 `CanFireNow`；倍率限制和威胁通知条件由 `IncidentSelectionPolicy` 保留。
+
+五个注册上下文 provider 都读取世界级数据，只按 Storyteller 场景隔离；地图 NPC 和 `NPC-storyteller` 后备身份的 `PawnId=0` 不会阻止任务、状态、对话、反应或叙述上下文。阅读地图见 [事件请求切片](Source/Storyteller/README.md)。
+
+[测试说明](Tests/README.md) 列出真实 provider 和事件选择器的行为覆盖。Storyteller 全部测试项目累计最多 999 个发现用例，参数化数据行逐行计数；测试验证真实行为、失败边界和模块协作，不复制生产算法或锁定私有实现形状，不为压低数量合并无关场景。
 
 ## 设置项
 
@@ -128,10 +132,12 @@ AI 选择威胁事件时，通过审批页面通知玩家。ThreatBig 显示"叙
 | 定时触发 | 开启 | 按 MTB 随机间隔触发 AI 事件选择，关闭后仍可手动触发 |
 | Fallback 模式 | Cassandra | AI 冷却/失败/Director 不健康时的备用行为 |
 | 事件平均间隔 | 1.5 游戏天 | AI 评估频率（MTB 随机触发，0.5~10 天可调） |
-| 候选事件数上限 | 15 | 每次评估的候选事件数量（5~25 可调） |
 | 请求过期 | 0.5 游戏天 | AI 请求超时自动取消（0.06~2 天可调） |
 | 事件记录上限 | 50 | 保留的最近事件记录数量（10~100 可调） |
 | 对话记录上限 | 30 | 保留的最近对话记录数量（5~60 可调） |
+| 玩家反应记录上限 | 20 | 保留的玩家情感反应记录数量（5~50 可调） |
+| 事件链过期 | 10 天 | 超过此时间未推进的事件链自动移除（3~30 天可调） |
+| 张力衰减 | 0.03/天 | 每游戏日衰减的叙事张力值（0.01~0.10 可调） |
 | 叙事者风格 Prompt | - | 追加到系统 Prompt 的自定义指令 |
 | 事件通知 | 开启 | 威胁事件触发时通知玩家选择情感反应 |
 | 详细日志 | 关闭 | 输出 AI 选择过程到 Player.log |
@@ -169,7 +175,6 @@ A: 不是。使用 MTB（Mean Time Between）随机触发机制，类似原版�
 
 欢迎提交 Issue 和 Pull Request！如果你有任何建议或发现 Bug，请通过 GitHub Issues 反馈。
 
-
 ---
 
 # RimMind - Storyteller (English)
@@ -186,7 +191,7 @@ RimMind is an AI-driven RimWorld mod suite that connects to Large Language Model
 |--------|------|------------|--------|
 | RimMind-Core | API client, request dispatch, context packaging | Harmony | [RimMind-Core repo](https://github.com/RimWorld-RimMind-Mod/RimWorld-RimMind-Mod-Core) |
 | RimMind-Actions | AI-controlled pawn action execution | Core | [RimMind-Actions repo](https://github.com/RimWorld-RimMind-Mod/RimWorld-RimMind-Mod-Actions) |
-| RimMind-Advisor | AI role-plays colonists for work decisions | Core, Actions | [RimMind-Advisor repo](https://github.com/RimWorld-RimMind-Mod/RimWorld-RimMind-Mod-Advisor) |
+| RimMind-Advisor | AI role-plays colonists for work decisions | Core (Actions optional) | [RimMind-Advisor repo](https://github.com/RimWorld-RimMind-Mod/RimWorld-RimMind-Mod-Advisor) |
 | RimMind-Dialogue | AI-driven dialogue system | Core | [RimMind-Dialogue repo](https://github.com/RimWorld-RimMind-Mod/RimWorld-RimMind-Mod-Dialogue) |
 | RimMind-Memory | Memory collection & context injection | Core | [RimMind-Memory repo](https://github.com/RimWorld-RimMind-Mod/RimWorld-RimMind-Mod-Memory) |
 | RimMind-Personality | AI-generated personality & thoughts | Core | [RimMind-Personality repo](https://github.com/RimWorld-RimMind-Mod/RimWorld-RimMind-Mod-Personality) |
@@ -241,9 +246,17 @@ cd RimWorld-RimMind-Mod-Storyteller
 - **Difficulty Awareness**: Six tiers of behavioral guidance from Peaceful to Extreme based on threatScale and allowBigThreats
 - **Fallback Mechanism**: Automatically switches to classic storyteller mode when AI is unavailable or Director is unhealthy
 - **Storyteller Dialogue**: Chat with the storyteller via the Altar building, with confidential sections AI strictly won't leak
+- **Memory Integration**: When RimMind-Memory is installed, the storyteller reads colony narration history for more coherent event selection
 - **Event Notification**: When AI selects a threat event, notify the player to choose an emotional reaction that affects narrative tension
-- **Colony Snapshot**: Tracks population and wealth changes for AI reference
 - **Custom Narrative Style**: Define AI behavior through custom prompts
+
+## Implementation and tests
+
+`StorytellerComp_RimMindDirector` owns interval gates; `StorytellerRequestCoordinator` sends `ScenarioStoryteller` requests through `RimMindAPI.Request.Send`. `RimMindIncidentSelector` directly validates parsing, definitions, and `CanFireNow`; `IncidentSelectionPolicy` retains multiplier bounds and threat-notification conditions.
+
+All five registered context providers read world-level data and guard only the Storyteller scenario. Map NPCs and the `NPC-storyteller` fallback are valid with `PawnId=0`. See the [incident-request map](Source/Storyteller/README.md) and [test guide](Tests/README.md).
+
+All Storyteller test projects combined allow at most 999 discovered cases, counting each parameterized row. Verify real behavior, failures, and module collaboration; do not copy production algorithms, constrain private implementation shape, or merge unrelated scenarios to reduce counts.
 
 ## Settings
 
@@ -252,10 +265,12 @@ cd RimWorld-RimMind-Mod-Storyteller
 | Interval Trigger | On | Trigger AI event selection at MTB-based random intervals; manual trigger still works when off |
 | Fallback Mode | Cassandra | Backup behavior when AI cooling down / failed / Director unhealthy |
 | Avg. Event Interval | 1.5 game days | AI evaluation frequency (MTB random trigger, 0.5~10 days) |
-| Max Candidates | 15 | Number of candidate events per AI evaluation (5~25) |
 | Request Expiry | 0.5 game days | Auto-cancel AI requests after timeout (0.06~2 days) |
 | Max Event Records | 50 | Number of recent event records kept (10~100) |
 | Max Dialogue Records | 30 | Number of recent dialogue records kept (5~60) |
+| Max Player Reactions | 20 | Number of player emotional reaction records kept (5~50) |
+| Chain Expiry | 10 days | Event chains not advanced within this time are removed (3~30 days) |
+| Tension Decay | 0.03/day | Amount of narrative tension that decays per game day (0.01~0.10) |
 | Style Prompt | - | Custom instruction appended to system prompt |
 | Event Notification | On | Notify player to choose emotional reaction when threat events are selected |
 | Verbose Logging | Off | Output AI selection details to Player.log |
