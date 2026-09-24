@@ -1,20 +1,35 @@
 [h1]RimMind - Storyteller[/h1]
 你的殖民地，值得一个会讲故事的叙事者。
+[h1]RimMind - Storyteller (智能叙事导演)[/h1]
 
 [h2]原版叙事者只会掷骰子[/h2]
 Cassandra 按表来，Randy 看心情，Phoebe 偶尔露面。它们不知道你的殖民地刚经历了一场惨烈的围攻，不知道你已经三个季度没见过商队，不知道你的粮食只够撑过这个冬天。它们只是……掷骰子。
+[i]告别冷冰冰的随机数掷骰——让 AI 成为洞悉殖民地一切悲欢的叙事导演。[/i]
+[i]Move beyond cold RNG dice rolls — An AI Storyteller that crafts deliberate, emergent narrative arcs.[/i]
 
 RimMind Director 不同。它知道一切。然后，它做出选择——不是为了随机，而是为了故事。
+[hr]
+[h2]📖 中文介绍 / Chinese Overview[/h2]
 
 [h2]AI 编织连贯叙事[/h2]
 每一次事件选择，AI 都会审视殖民地的完整历史：上次袭击是什么时候？殖民地富裕还是贫穷？张力是高还是低？然后它选择最能推进当前叙事的事件。
+[b]RimMind-Storyteller[/b] 为 RimWorld 引入了具有戏剧把控力的 AI 叙事者。原版的卡珊德拉按时间表出招、兰迪全凭运气，而 RimMind Director 能够理解殖民地的历史脉络、物资短缺与心理创伤，为你量身编织波澜起伏的故事弧线。
 
 悲剧之后迎来希望。长期平静后酝酿风暴。你的殖民地不再是一串随机数的受害者——它是一个有起承转合的故事。
+[h3]🌟 核心特性[/h3]
+[list]
+[*] [b]戏剧张力平衡系统 (Tension Tracking)[/b]：实时量化殖民地的紧张度。惨烈血战后提供适度的休整喘息，长期安稳懈怠时酝酿危机挑战。
+[*] [b]连贯多步事件链 (Incident Chains)[/b]：事件不再是孤立碎片。先遣小队的骚扰、后续增援的反扑、乃至战败后的外交斡旋，环环相扣。
+[*] [b]全局上下文理解[/b]：知晓殖民地刚刚经历的瘟疫或饥荒，做出兼顾挑战性与叙事逻辑的事件派发。
+[/list]
 
 [h2]事件链：从试探到决战[/h2]
 一波小规模海盗袭击可能只是试探。几天后，同一批海盗带着增援卷土重来。你击退了他们？他们可能派人来谈判——也可能选择更疯狂的报复。
+[hr]
+[h2]🌐 English Overview[/h2]
 
 AI 可以设计多步连锁事件，让 RimWorld 的随机事件变成有弧线的故事。每一个事件都不是孤立的，而是前一个的后果、后一个的伏笔。
+[b]RimMind-Storyteller[/b] reimagines colony events through an AI Director who comprehends drama, pacing, and emotional weight.
 
 [h2]张力系统：张弛有度[/h2]
 叙事者追踪殖民地的紧张程度。大型威胁让张力飙升，商队来访让张力缓解，日常琐事轻轻放下。AI 根据张力水平调整事件强度——高张力时给你喘息，低张力时制造挑战。
@@ -24,10 +39,14 @@ AI 可以设计多步连锁事件，让 RimWorld 的随机事件变成有弧线�
 [h2]你的反应改变叙事[/h2]
 当 AI 选择了一个威胁事件，你会收到通知——"叙事者宣告"或"叙事者低语"。你可以选择你的情感反应：
 
+[h3]🌟 Key Highlights[/h3]
 [list]
 [*] [b]"不是吧！"[/b] — 你紧张了，叙事者知道。它可能会给你喘息的机会。
 [*] [b]"来的好！"[/b] — 你渴望挑战，叙事者记住了。下次会更刺激。
 [*] [b]"了解"[/b] — 默默接受命运。
+[*] [b]Adaptive Dramatic Tension[/b]: Monitors colony stress levels to ensure meaningful balance between high-stakes pressure and well-earned recovery.
+[*] [b]Connected Event Chains[/b]: Incidents link together as cause and effect—scouting raids lead to fortified assaults or unexpected treaties.
+[*] [b]Context-Driven Selection[/b]: Selects incidents that reflect the ongoing story rather than arbitrary dice rolls.
 [/list]
 
 你不是被动的旁观者。你的态度，影响叙事者的决策。
@@ -53,11 +72,15 @@ AI 根据游戏难度调整行为——和平模式温和友善，极限模式�
 RimMind 是一套 AI 驱动的 RimWorld 模组套件，通过接入大语言模型 (LLM)，让殖民者拥有人格、记忆、对话和自主决策能力。
 
 [h2]快速开始[/h2]
+[hr]
+[h2]⚙️ 依赖与顺序 / Requirements & Order[/h2]
 [list]
 [*] 安装 [Harmony](https://steamcommunity.com/sharedfiles/filedetails/?id=2009463077) 和 RimMind-Core
 [*] 在 Core 设置中填写 API Key 和端点
 [*] 新建游戏或载入存档，选择叙事者 [b]"RimMind Director"[/b]
 [*] 建造叙事者祭坛，与你的叙事者对话
+[*] [b]必需前置 (Required)[/b]: Harmony, [b]RimMind-Core[/b]
+[*] [b]推荐搭配 (Recommended)[/b]: [b]RimMind-Memory[/b]（提供宏观编年史上下文）
 [/list]
 
 [h2]常见问题[/h2]
