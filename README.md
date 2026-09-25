@@ -35,6 +35,13 @@ graph TD
     Core --> BridgeRimTalk["Bridge-RimTalk"]
 ```
 
+## 🎮 实机特性展示 / In-Game Showcase
+
+![RimMind-Storyteller In-Game Showcase](docs/images/showcase.jpg)
+
+- **AI 动态戏剧张力曲线**：基于殖民地整体财富、伤亡、储备与情绪，实时调控事件节奏，告别传统死板的固定点数袭击。
+- **长周期叙事连贯性**：事件生成深度结合历史记忆与殖民者经历，创造具备因果逻辑与情绪铺垫的史诗篇章。
+
 ## 安装步骤
 
 ### 从源码安装
@@ -207,6 +214,13 @@ RimMind is an AI-driven RimWorld mod suite that connects to Large Language Model
 | RimMind-Bridge-RimChat | Coordination & mutual exclusion layer with RimChat mod | Core, RimChat | [Link](https://github.com/RimWorld-RimMind-Mod/RimWorld-RimMind-Mod-Bridge-RimChat) |
 | RimMind-Bridge-RimTalk | Dialogue bubbles & context bridge with RimTalk mod | Core, RimTalk | [Link](https://github.com/RimWorld-RimMind-Mod/RimWorld-RimMind-Mod-Bridge-RimTalk) |
 | RimMind-Extension-ModelService | Extended model gateway, OpenCode Go subscription & multi-endpoint load balancing | Core | [Link](https://github.com/RimWorld-RimMind-Mod/RimWorld-RimMind-Mod-Extension-ModelService) |
+
+## 🎮 In-Game Showcase / Feature Demonstration
+
+![RimMind-Storyteller In-Game Showcase](docs/images/showcase.jpg)
+
+- **AI Dramatic Tension Curve**: Dynamically tunes event frequency and severity according to colony wealth, injuries, mental breaks, and supply reserves, avoiding mechanical random raid spikes.
+- **Narrative Continuity Across Eras**: Incident generation deeply connects with historical memories and ongoing colonist conflicts, weaving coherent, emotionally resonant story arcs.
 
 ## Installation
 
