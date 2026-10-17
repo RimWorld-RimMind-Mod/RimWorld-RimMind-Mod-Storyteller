@@ -8,7 +8,7 @@
 <p>
   <a href="https://rimworldgame.com/"><img src="https://img.shields.io/badge/RimWorld-1.6-brightgreen.svg" alt="RimWorld 1.6"></a>
   <a href="https://github.com/mcocdaa/RimWorld-RimMind-Mod-Core"><img src="https://img.shields.io/badge/Dependency-RimMind--Core-blue.svg" alt="Dependency: RimMind-Core"></a>
-  <a href="#"><img src="https://img.shields.io/badge/Unit%20Tests-20%2B%20Passing-success.svg" alt="Unit Tests"></a>
+  <a href="#"><img src="https://img.shields.io/badge/Unit%20Tests-24%2B%20Passing-success.svg" alt="Unit Tests"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
 </p>
 
@@ -23,9 +23,10 @@
 **RimMind-Storyteller** reimagines RimWorld's classic storyteller AI. Instead of firing arbitrary raid dice based strictly on colony wealth graphs, the AI Storyteller acts as a genuine narrative director, assessing emotional pacing, past colony deeds, and unresolved conflicts to orchestrate coherent, multi-part sagas.
 
 ### Core Features
-- **Dramatic Tension Curve**: Continuously monitors the colony's emotional equilibrium, balancing hardship, recovery, and sudden twists.
-- **Contextual Narrative Incident Chains**: Connects incidents logically—e.g., a rescue of an escaped refugee might provoke a targeted retaliatory manhunt days later.
-- **Custom Literary Incident Letters**: Incident notifications feature evocative, AI-composed storytelling prose that explicitly names colonists, past milestones, and geographic context.
+- **Dramatic Tension Curve (`StorytellerMemory`)**: Continuously monitors the colony's emotional equilibrium with daily tension decay (`TensionMath`) and player reaction tracking, balancing hardship, recovery, and sudden twists.
+- **Resilient Director Pipeline (`StorytellerRequestCoordinator` & `StorytellerResponseParserPure`)**: Features non-blocking request lifecycle coordination with automatic 15,000-tick pending request timeout protection, 2,500-tick failure backoff, and brace-balanced truncated JSON repair.
+- **Contextual Narrative Incident Chains**: Connects incidents logically across multi-step arcs (`chain_id`, `chain_step`, `chain_total`, `next_hint`) with bounded threat point multipliers and faction/strategy hints.
+- **Altar Dialogue & Agent Console (`Window_StorytellerDialogue` & `Window_StorytellerAgentControl`)**: Communicate directly with the AI Storyteller at the Storyteller Altar or inspect and control the autonomous Storyteller Agent in real time.
 
 ---
 
@@ -40,12 +41,11 @@
 
 ```mermaid
 flowchart TD
-    State["Colony History & Wealth Metrics"] --> Tension["Dramatic Tension Curve Evaluator"]
-    Tension --> Pacing{"Is Pacing Appropriate?"}
-    Pacing -- Needs Climax --> IncidentGen["Select & Chain Narrative Incident"]
-    Pacing -- Needs Respite --> Relief["Select Opportunity or Peace Event"]
-    IncidentGen --> Lore["Generate Custom Incident Letter Text"]
-    Lore --> Letter["Display Narrative Incident to Player"]
+    State["Colony History & StorytellerMemory"] --> Tension["Dramatic Tension Curve & Decay"]
+    Tension --> Coord["StorytellerRequestCoordinator (Timeout & Backoff Guard)"]
+    Coord --> Parser["StorytellerResponseParserPure (JSON Repair & Validation)"]
+    Parser --> Selector["RimMindIncidentSelector (CanFireNow & Bounds)"]
+    Selector --> Letter["Fire Narrative Incident & Record Chain Step"]
 ```
 
 ---

@@ -41,6 +41,11 @@ namespace RimMind.Storyteller.Tests.Contracts
             Assert.Equal(2, response.chain.chain_step);
             Assert.Equal(4, response.chain.chain_total);
             Assert.Equal("reprisal", response.chain.next_hint);
+
+            string fencedJson = "```json\n" + json + "\n```";
+            IncidentResponse? fencedResponse = StorytellerResponseParserPure.ParseResponse(fencedJson);
+            Assert.NotNull(fencedResponse);
+            Assert.Equal("RaidEnemy", fencedResponse!.defName);
         }
 
         private static void RecoverableResponsesAreRepaired()
@@ -49,9 +54,21 @@ namespace RimMind.Storyteller.Tests.Contracts
                 "{\"defName\":\"WandererJoin\",\"reason\":\"mercy\"");
             IncidentResponse? trailingComma = StorytellerResponseParserPure.ParseResponse(
                 "{\"defName\":\"CargoPodCrash\",\"reason\":\"gift\",}");
+            IncidentResponse? fencedTruncated = StorytellerResponseParserPure.ParseResponse(
+                "```json\n{\"defName\":\"WandererJoin\",\"reason\":\"mercy\"\n```");
+            IncidentResponse? nestedTruncatedInString = StorytellerResponseParserPure.ParseResponse(
+                "{\"defName\":\"RaidEnemy\",\"params\":{\"points_multiplier\":1.5},\"reason\":\"test");
+            IncidentResponse? fencedNestedTruncated = StorytellerResponseParserPure.ParseResponse(
+                "```json\n{\"defName\":\"RaidEnemy\",\"params\":{\"points_multiplier\":1.5}\n```");
 
             Assert.Equal("WandererJoin", truncated?.defName);
             Assert.Equal("CargoPodCrash", trailingComma?.defName);
+            Assert.Equal("WandererJoin", fencedTruncated?.defName);
+            Assert.Equal("RaidEnemy", nestedTruncatedInString?.defName);
+            Assert.Equal(1.5f, nestedTruncatedInString?.@params?.points_multiplier);
+            Assert.Equal("test", nestedTruncatedInString?.reason);
+            Assert.Equal("RaidEnemy", fencedNestedTruncated?.defName);
+            Assert.Equal(1.5f, fencedNestedTruncated?.@params?.points_multiplier);
         }
 
         private static void InvalidResponsesBecomeNoIncident()
