@@ -25,8 +25,18 @@ namespace RimMind.Storyteller.UI
 
             var agent = StorytellerAgentController.Find();
             float y = inRect.y + 42f;
+            string stateDisplay;
+            if (agent == null)
+            {
+                stateDisplay = "RimMind.Storyteller.UI.Agent.NotCreated".Translate();
+            }
+            else
+            {
+                string stateKey = $"RimMind.Agent.State.{agent.State}";
+                stateDisplay = stateKey.CanTranslate() ? (string)stateKey.Translate() : agent.State.ToString();
+            }
             Widgets.Label(new Rect(inRect.x, y, inRect.width, 24f),
-                "RimMind.Storyteller.UI.Agent.State".Translate(agent?.State.ToString() ?? "not_created"));
+                "RimMind.Storyteller.UI.Agent.State".Translate(stateDisplay));
             y += 34f;
 
             if (Widgets.ButtonText(new Rect(inRect.x, y, 120f, 32f),

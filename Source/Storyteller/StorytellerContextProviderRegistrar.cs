@@ -12,6 +12,17 @@ namespace RimMind.Storyteller
     {
         private const string ModId = RimMind.Application.Common.Constants.RimMindOwnerConsts.StorytellerModId;
 
+        private static string Tr(string key, params object[] args)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(key)) return string.Empty;
+                string template = key.CanTranslate() ? key.TranslateSimple() : key;
+                return (args == null || args.Length == 0) ? template : string.Format(template, args);
+            }
+            catch { return key ?? string.Empty; }
+        }
+
         internal static void RegisterAll()
         {
             RimMindAPI.Context.ContextKeys.Register(new ContextProviderDef(
@@ -27,7 +38,7 @@ namespace RimMind.Storyteller
                     string dialogue = mem.GetRecentDialogueSummary(5);
                     return string.IsNullOrEmpty(dialogue)
                         ? null
-                        : $"{"RimMind.Storyteller.Dialogue.StorytellerDialogueHeader".Translate()}\n{dialogue}";
+                        : $"{Tr("RimMind.Storyteller.Dialogue.StorytellerDialogueHeader")}\n{dialogue}";
                 }, ownerMod: ModId, stalenessTicks: 750, invalidationTriggers: new[] { "StorytellerEvent" },
                 cacheScope: CacheScope.Scenario));
 
@@ -65,11 +76,11 @@ namespace RimMind.Storyteller
                     var mem = StorytellerMemory.Instance;
                     if (mem == null) return null;
                     var sb = new StringBuilder();
-                    sb.AppendLine("RimMind.Storyteller.Prompt.StorytellerStateHeader".Translate());
+                    sb.AppendLine(Tr("RimMind.Storyteller.Prompt.StorytellerStateHeader"));
                     StorytellerContextBuilder.AppendDifficultyContext(sb);
                     StorytellerContextBuilder.AppendThreatLevel(sb);
                     StorytellerContextBuilder.AppendTensionLabel(sb, mem.TensionLevel);
-                    sb.AppendLine("RimMind.Storyteller.Prompt.TensionLevel".Translate(
+                    sb.AppendLine(Tr("RimMind.Storyteller.Prompt.TensionLevel",
                         $"{(int)(mem.TensionLevel * 100)}%", $"{mem.TensionLevel:F2}"));
                     string summary = mem.GetRecentSummary(5);
                     if (!string.IsNullOrEmpty(summary))
