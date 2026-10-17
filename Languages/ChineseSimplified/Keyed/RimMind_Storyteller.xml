@@ -121,11 +121,11 @@
   <RimMind.Storyteller.Prompt.PlayerReactions>[玩家反应记录]</RimMind.Storyteller.Prompt.PlayerReactions>
   <RimMind.Storyteller.Prompt.RecentIncidents>[近期叙事事件]</RimMind.Storyteller.Prompt.RecentIncidents>
   <!-- Window_StorytellerAgentControl.cs -->
-  <RimMind.Storyteller.UI.Agent.Title>Storyteller Agent</RimMind.Storyteller.UI.Agent.Title>
+  <RimMind.Storyteller.UI.Agent.Title>叙事者智能体</RimMind.Storyteller.UI.Agent.Title>
   <RimMind.Storyteller.UI.Agent.State>状态：{0}</RimMind.Storyteller.UI.Agent.State>
   <RimMind.Storyteller.UI.Agent.Start>启动</RimMind.Storyteller.UI.Agent.Start>
   <RimMind.Storyteller.UI.Agent.Pause>暂停</RimMind.Storyteller.UI.Agent.Pause>
   <RimMind.Storyteller.UI.Agent.ForceThink>强制思考</RimMind.Storyteller.UI.Agent.ForceThink>
   <RimMind.Storyteller.UI.Agent.OpenRequests>请求</RimMind.Storyteller.UI.Agent.OpenRequests>
-  <RimMind.Storyteller.UI.Agent.NotCreated>尚未创建 Storyteller Agent。</RimMind.Storyteller.UI.Agent.NotCreated>
+  <RimMind.Storyteller.UI.Agent.NotCreated>尚未创建叙事者智能体。</RimMind.Storyteller.UI.Agent.NotCreated>
 </LanguageData>

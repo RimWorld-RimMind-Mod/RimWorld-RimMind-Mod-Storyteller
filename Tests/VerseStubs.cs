@@ -8,6 +8,8 @@ namespace Verse
     public static class Extensions
     {
         public static string Translate(this string key, params object[] args) => key;
+        public static bool CanTranslate(this string key) => false;
+        public static string TranslateSimple(this string key) => key;
     }
     public static class Log { public static void Message(string message) { } }
     public class Pawn { public int thingIDNumber; }

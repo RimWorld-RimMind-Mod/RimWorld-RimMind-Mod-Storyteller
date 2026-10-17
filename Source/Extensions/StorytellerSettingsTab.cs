@@ -9,7 +9,9 @@ namespace RimMind.Storyteller
     {
         public string Id => "storyteller";
         public string OwnerModId => "RimMind.Storyteller";
-        public string Label => "RimMind.Storyteller.UI.TabLabel".Translate();
+        public string Label => "RimMind.Storyteller.UI.TabLabel".CanTranslate()
+            ? (string)"RimMind.Storyteller.UI.TabLabel".Translate()
+            : "Storyteller";
         public void Draw(Rect rect) => Settings.StorytellerSettingsTab.Draw(rect);
     }
 }
