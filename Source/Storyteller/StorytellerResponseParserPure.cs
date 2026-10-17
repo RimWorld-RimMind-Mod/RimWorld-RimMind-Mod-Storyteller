@@ -16,6 +16,79 @@ namespace RimMind.Storyteller
             @",\s*([}\]])",
             RegexOptions.Compiled);
 
+        private static readonly Regex CodeFenceRegex = new Regex(
+            @"```(?:json)?\s*([\s\S]*?)\s*```",
+            RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+        /// <summary>
+        /// 从AI响应中剥离 markdown 代码块标记并提取干净的 JSON 子串。
+        /// </summary>
+        public static string ExtractJsonSubstring(string input)
+        {
+            if (string.IsNullOrWhiteSpace(input)) return string.Empty;
+            string text = input.Trim();
+
+            var match = CodeFenceRegex.Match(text);
+            if (match.Success)
+            {
+                text = match.Groups[1].Value.Trim();
+            }
+            else if (text.StartsWith("```"))
+            {
+                int firstNewline = text.IndexOf('\n');
+                text = firstNewline >= 0 ? text.Substring(firstNewline + 1) : text.TrimStart('`');
+                int lastFence = text.LastIndexOf("```", System.StringComparison.Ordinal);
+                if (lastFence >= 0)
+                    text = text.Substring(0, lastFence);
+                text = text.Trim();
+            }
+
+            int firstBrace = text.IndexOf('{');
+            if (firstBrace < 0)
+                return text.Trim();
+
+            int openBraces = 0;
+            int closeBraces = 0;
+            bool inString = false;
+            bool escape = false;
+            for (int i = firstBrace; i < text.Length; i++)
+            {
+                char c = text[i];
+                if (escape)
+                {
+                    escape = false;
+                    continue;
+                }
+                if (c == '\\' && inString)
+                {
+                    escape = true;
+                    continue;
+                }
+                if (c == '"')
+                {
+                    inString = !inString;
+                    continue;
+                }
+                if (!inString)
+                {
+                    if (c == '{') openBraces++;
+                    else if (c == '}') closeBraces++;
+                }
+            }
+
+            int lastBrace = text.LastIndexOf('}');
+            if (lastBrace > firstBrace && openBraces <= closeBraces)
+            {
+                text = text.Substring(firstBrace, lastBrace - firstBrace + 1);
+            }
+            else
+            {
+                text = text.Substring(firstBrace);
+            }
+
+            return text.Trim();
+        }
+
         /// <summary>
         /// 解析AI响应内容，尝试反序列化为 IncidentResponse。
         /// 失败时尝试修复截断JSON后重试。若 defName 为空则返回 null。
@@ -24,14 +97,17 @@ namespace RimMind.Storyteller
         {
             if (string.IsNullOrEmpty(aiContent)) return null;
 
+            string clean = ExtractJsonSubstring(aiContent);
+            if (string.IsNullOrEmpty(clean)) return null;
+
             IncidentResponse? result;
             try
             {
-                result = JsonConvert.DeserializeObject<IncidentResponse>(aiContent);
+                result = JsonConvert.DeserializeObject<IncidentResponse>(clean);
             }
             catch
             {
-                string? repaired = TryRepairTruncatedJson(aiContent);
+                string? repaired = TryRepairTruncatedJson(clean);
                 if (repaired != null)
                 {
                     try { result = JsonConvert.DeserializeObject<IncidentResponse>(repaired); }
@@ -54,14 +130,16 @@ namespace RimMind.Storyteller
         public static string? TryRepairTruncatedJson(string input)
         {
             if (string.IsNullOrWhiteSpace(input)) return null;
+            string clean = ExtractJsonSubstring(input);
+            if (string.IsNullOrWhiteSpace(clean)) return null;
             try
             {
-                JToken.Parse(input);
+                JToken.Parse(clean);
                 return null; // 已是合法JSON，无需修复
             }
             catch
             {
-                return Repair(input);
+                return Repair(clean);
             }
         }
 
@@ -69,24 +147,57 @@ namespace RimMind.Storyteller
         {
             if (string.IsNullOrWhiteSpace(input)) return "{}";
 
-            var result = new StringBuilder(input);
-            result = new StringBuilder(TrailingCommaRegex.Replace(result.ToString(), "$1"));
-            var balanced = BalanceBrackets(result.ToString());
-            return balanced;
+            var balanced = BalanceBrackets(input);
+            return TrailingCommaRegex.Replace(balanced, "$1");
         }
 
         private static string BalanceBrackets(string input)
         {
             int openCurly = 0, openSquare = 0;
+            bool inString = false;
+            bool escape = false;
             foreach (char c in input)
             {
-                if (c == '{') openCurly++;
-                else if (c == '}') openCurly--;
-                else if (c == '[') openSquare++;
-                else if (c == ']') openSquare--;
+                if (escape)
+                {
+                    escape = false;
+                    continue;
+                }
+                if (c == '\\' && inString)
+                {
+                    escape = true;
+                    continue;
+                }
+                if (c == '"')
+                {
+                    inString = !inString;
+                    continue;
+                }
+                if (!inString)
+                {
+                    if (c == '{') openCurly++;
+                    else if (c == '}') openCurly--;
+                    else if (c == '[') openSquare++;
+                    else if (c == ']') openSquare--;
+                }
             }
 
             var sb = new StringBuilder(input);
+            if (inString)
+            {
+                if (escape)
+                    sb.Append('\\');
+                sb.Append('"');
+            }
+
+            string current = sb.ToString().TrimEnd();
+            current = TrailingCommaRegex.Replace(current, "$1").TrimEnd();
+            if (current.EndsWith(","))
+                current = current.Substring(0, current.Length - 1).TrimEnd();
+            else if (current.EndsWith(":"))
+                current += "null";
+
+            sb = new StringBuilder(current);
             while (openSquare > 0) { sb.Append(']'); openSquare--; }
             while (openCurly > 0) { sb.Append('}'); openCurly--; }
             return sb.ToString();

@@ -11,6 +11,7 @@ namespace RimMind.Storyteller
 
         public bool HasPendingRequest { get; private set; }
         public bool HasPendingResult => _pendingIncident != null;
+        public int LastDispatchTick { get; private set; } = -99999;
         public int LastSuccessTick { get; private set; } = -99999;
         public int LastFailTick { get; private set; } = -99999;
 
@@ -29,6 +30,7 @@ namespace RimMind.Storyteller
             }
 
             HasPendingRequest = true;
+            LastDispatchTick = failureTick;
             _activeRequestToken = ++_generation;
             long token = _activeRequestToken;
             try
@@ -47,6 +49,18 @@ namespace RimMind.Storyteller
 
         public bool IsCurrent(long token)
             => HasPendingRequest && _activeRequestToken == token;
+
+        public bool CancelIfTimedOut(int currentTick, int timeoutTicks = 15000)
+        {
+            if (!HasPendingRequest || LastDispatchTick < 0)
+                return false;
+
+            if (currentTick - LastDispatchTick <= timeoutTicks)
+                return false;
+
+            CancelRequest();
+            return true;
+        }
 
         public void CancelRequest()
         {

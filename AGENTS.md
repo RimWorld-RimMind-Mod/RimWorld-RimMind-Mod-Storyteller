@@ -140,8 +140,10 @@ Storyteller 不访问 Memory 的具体 Store、WorldComponent 或设置单例。
 - 翻译键前缀: `RimMind.Storyteller.*`
 - Harmony ID: `mcocdaa.RimMindStoryteller`
 - `mtbDays` 运行时以Settings为准(覆盖Def)
-- 间隔检查顺序保持为 target → maintenance → pending result → pending request → API → setting → skip check → MTB
+- 间隔检查顺序保持为 target → maintenance → pending result → pending request (含 15000 tick 超时自动取消) → failure backoff (`LastFailTick` 2500 tick 冷却) → API → setting → skip check → MTB
 - 过期请求Token必须忽略；成功/失败Tick只由 `StorytellerRequestState` 更新
+- `StorytellerResponseParserPure` 在提取 JSON 子串时必须统计字符串外的花括号平衡（截断 JSON 不得在内部嵌套 `}` 处截断），并在修复阶段先闭合未结束的字符串字面量再配平括号
+- `PawnLookup.FindPawnById` 优先通过 `RimMindPawnLookup.FindPawnByNumber` 与当前地图 `FreeColonists` 查找，最后回退到 `WorldPawns.AllPawnsAlive`
 - `StorytellerMemory` 持有事件历史、对话、反应、张力和事件链的持久状态
 - 所有ContextKey注册必须包含场景守卫
 - `RimMindIncidentSelector` 直接守卫解析失败、未知 Def 和 `CanFireNow=false`；参数倍率范围与威胁通知条件仍由 `IncidentSelectionPolicy` 负责。

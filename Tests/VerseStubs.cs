@@ -156,6 +156,21 @@ namespace RimMind.Presentation.Api
         }
         public sealed class Narration { public int Tick; public string Content = ""; }
     }
+
+    public static class RimMindPawnLookup
+    {
+        public static Verse.Pawn? FindPawnByNumber(int thingIdNumber)
+        {
+            if (thingIdNumber <= 0) return null;
+            var mapColonists = Verse.Find.CurrentMap?.mapPawns?.FreeColonists;
+            if (mapColonists != null)
+            {
+                var found = mapColonists.FirstOrDefault(p => p.thingIDNumber == thingIdNumber);
+                if (found != null) return found;
+            }
+            return null;
+        }
+    }
 }
 
 namespace RimMind.Storyteller.Memory

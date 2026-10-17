@@ -58,6 +58,10 @@ namespace RimMind.Storyteller
             if (RequestCoordinator.HasPendingRequest)
                 yield break;
 
+            int currentTick = Find.TickManager.TicksGame;
+            if (RequestCoordinator.LastFailTick > 0 && currentTick - RequestCoordinator.LastFailTick < 2500)
+                yield break;
+
             if (!RimMindAPI.IsConfigured())
                 yield break;
 

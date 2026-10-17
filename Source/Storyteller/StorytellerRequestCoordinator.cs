@@ -22,10 +22,28 @@ namespace RimMind.Storyteller
             _source = source ?? throw new ArgumentNullException(nameof(source));
         }
 
-        public bool IsActive =>
-            _requestState.HasPendingRequest || _requestState.HasPendingResult;
+        private const int PendingRequestTimeoutTicks = 15000;
 
-        public bool HasPendingRequest => _requestState.HasPendingRequest;
+        public bool IsActive =>
+            HasPendingRequest || _requestState.HasPendingResult;
+
+        public bool HasPendingRequest
+        {
+            get
+            {
+                if (_requestState.HasPendingRequest && Find.TickManager != null)
+                {
+                    int now = Find.TickManager.TicksGame;
+                    if (_requestState.CancelIfTimedOut(now, PendingRequestTimeoutTicks))
+                    {
+                        RimMindErrors.Warn(
+                            "[RimMind-Storyteller] Pending AI request timed out after 15000 ticks; auto-canceling.");
+                    }
+                }
+                return _requestState.HasPendingRequest;
+            }
+        }
+
         public int LastSuccessTick => _requestState.LastSuccessTick;
         public int LastFailTick => _requestState.LastFailTick;
 
