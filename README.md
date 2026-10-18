@@ -33,7 +33,7 @@
 ## 🎮 In-Game Showcase
 
 ![RimMind-Storyteller Showcase](docs/images/showcase.jpg)
-*Custom narrative incident letter: An AI storyteller presents an impending crisis with bespoke literary lore reflecting the colony's past choices.*
+*Bespoke causal incident letter: The AI Storyteller synthesizes yesterday's squirrel bite into a dramatic crisis letter ("Wrath of Causality: Revenge of the Frenzied Squirrel Pack") and queues the red incident envelope on the right HUD.*
 
 ---
 
