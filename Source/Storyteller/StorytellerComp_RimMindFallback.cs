@@ -20,6 +20,9 @@ namespace RimMind.Storyteller
             var mode = settings.fallbackMode;
             if (mode == FallbackMode.None) yield break;
 
+            if (StorytellerIncidentSkipCheck.ShouldSkipStorytellerIncident())
+                yield break;
+
             var aiComp = Find.Storyteller.storytellerComps
                 .OfType<StorytellerComp_RimMindDirector>()
                 .FirstOrDefault();
@@ -33,10 +36,7 @@ namespace RimMind.Storyteller
                 float directorMtb = settings.mtbDays;
                 int healthyThreshold = (int)(directorMtb * 60000f * 2f);
 
-                bool directorHealthy = now - aiComp.LastSuccessTick < healthyThreshold;
-                bool directorFailedRecently = now - aiComp.LastFailTick < healthyThreshold;
-
-                if (directorHealthy && !directorFailedRecently)
+                if (aiComp.IsDirectorHealthy(now, healthyThreshold))
                     yield break;
             }
 

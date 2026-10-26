@@ -85,7 +85,10 @@ namespace RimMind.Storyteller.Extensions
                 sb.AppendLine("RimMind.Storyteller.Prompt.NoViolentQuests".Translate());
             string? guidanceKey = ResolveDifficultyGuidanceKey(tier);
             if (guidanceKey != null)
-                sb.AppendLine("RimMind.Storyteller.Prompt.DifficultyGuidance".Translate(guidanceKey.Translate()));
+            {
+                string guidanceText = guidanceKey.CanTranslate() ? guidanceKey.TranslateSimple() : guidanceKey;
+                sb.AppendLine("RimMind.Storyteller.Prompt.DifficultyGuidance".Translate(guidanceText));
+            }
         }
 
         /// <summary>

@@ -101,5 +101,19 @@ namespace RimMind.Storyteller
             _pendingIncident = null;
             return incident != null;
         }
+
+        public bool IsDirectorHealthy(int currentTick, int healthyThresholdTicks)
+        {
+            bool directorFailedRecently = LastFailTick >= 0
+                && currentTick - LastFailTick < healthyThresholdTicks
+                && LastFailTick > LastSuccessTick;
+            if (directorFailedRecently)
+                return false;
+
+            if (LastFailTick < 0)
+                return true;
+
+            return LastSuccessTick >= 0 && currentTick - LastSuccessTick < healthyThresholdTicks;
+        }
     }
 }

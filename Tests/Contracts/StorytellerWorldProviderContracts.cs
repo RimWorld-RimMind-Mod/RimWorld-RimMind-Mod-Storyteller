@@ -1,9 +1,11 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using RimMind.Application.Common.Interfaces.Context;
 using RimMind.Application.Common.Models.Context;
+using RimMind.Application.Common.Threading;
 using RimMind.Presentation.Api;
 using RimMind.Storyteller.Memory;
 using Xunit;
@@ -56,6 +58,56 @@ namespace RimMind.Storyteller.Tests.Contracts
                 StorytellerMemory.Instance = null;
                 RimMindAPI.Context.ContextKeys.Definitions.Clear();
                 RimMindAPI.Memory.Narrations.Clear();
+            }
+        }
+
+        [Fact]
+        public async Task Storyteller_providers_marshal_background_reads_via_MainThreadReader_and_respect_chat_hint()
+        {
+            RimMindAPI.Context.ContextKeys.Definitions.Clear();
+            StorytellerMemory.Instance = new StorytellerMemory
+            {
+                IncidentSummary = "marshalled summary"
+            };
+            int postCount = 0;
+            RimMindAPI.MainThreadSnapshot.Reader = new MainThreadReader(
+                post: action =>
+                {
+                    Interlocked.Increment(ref postCount);
+                    action();
+                },
+                isMainThread: () => false);
+
+            try
+            {
+                StorytellerContextProviderRegistrar.RegisterAll();
+                var ctxProvider = RimMindAPI.Context.ContextKeys.Definitions.Single(d => d.Key == "storyteller_context");
+                var taskProvider = RimMindAPI.Context.ContextKeys.Definitions.Single(d => d.Key == "storyteller_task");
+
+                var context = new ProviderContext(ScenarioIds.Storyteller, "bg-test") { NpcId = "NPC-storyteller" };
+                string? result = await ctxProvider.Provider(context, CancellationToken.None);
+                Assert.Contains("marshalled summary", result);
+                Assert.Equal(1, postCount);
+
+                var chatContext = new ProviderContext(ScenarioIds.Storyteller, "chat-test")
+                {
+                    NpcId = "NPC-storyteller",
+                    Hints = new Dictionary<string, object?> { ["IsStorytellerChat"] = true }
+                };
+                Assert.Null(await taskProvider.Provider(chatContext, CancellationToken.None));
+
+                var stringHintChatContext = new ProviderContext(ScenarioIds.Storyteller, "chat-string-test")
+                {
+                    NpcId = "NPC-storyteller",
+                    Hints = new Dictionary<string, object?> { ["IsStorytellerChat"] = "true" }
+                };
+                Assert.Null(await taskProvider.Provider(stringHintChatContext, CancellationToken.None));
+            }
+            finally
+            {
+                RimMindAPI.MainThreadSnapshot.Reader = new MainThreadReader(a => a(), () => true);
+                StorytellerMemory.Instance = null;
+                RimMindAPI.Context.ContextKeys.Definitions.Clear();
             }
         }
     }

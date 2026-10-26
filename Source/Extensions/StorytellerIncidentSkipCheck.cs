@@ -11,5 +11,8 @@ namespace RimMind.Storyteller
         public string OwnerModId => "RimMind.Storyteller";
         public SkipCheckKind Kind => SkipCheckKind.StorytellerIncident;
         public bool ShouldSkip(in SkipCheckArgs args) => !_settings.enableIntervalTrigger;
+
+        public static bool ShouldSkipStorytellerIncident()
+            => RimMind.Presentation.Api.RimMindAPI.ShouldSkipStorytellerIncident();
     }
 }

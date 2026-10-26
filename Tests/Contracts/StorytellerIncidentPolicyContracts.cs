@@ -206,6 +206,26 @@ namespace RimMind.Storyteller.Tests.Contracts
                     },
                     pawn => pawn.Id)!.Source);
             Assert.Equal(1, mapFactoryCalls);
+
+            var activeMap = new Map();
+            var mapPawn = new Pawn { thingIDNumber = 42 };
+            var worldOnlyPawn = new Pawn { thingIDNumber = 99 };
+            activeMap.mapPawns.FreeColonists.Add(mapPawn);
+            Find.CurrentMap = activeMap;
+            Find.WorldPawns.AllPawnsAlive.Add(worldOnlyPawn);
+            try
+            {
+                Assert.Null(PawnLookup.FindPawnById(0));
+                Assert.Same(mapPawn, PawnLookup.FindPawnById(42));
+                Assert.Same(mapPawn, PawnLookup.FindById("Pawn_42"));
+                Assert.Null(PawnLookup.FindPawnById(99));
+                Assert.Null(PawnLookup.FindById("Pawn_99"));
+            }
+            finally
+            {
+                Find.CurrentMap = null;
+                Find.WorldPawns.AllPawnsAlive.Clear();
+            }
         }
 
         private static void NotificationPolicyRemainsNarrow()

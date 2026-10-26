@@ -66,10 +66,13 @@ namespace RimMind.Storyteller.UI
             while (_responseQueue.TryDequeue(out var resp))
             {
                 _waitingForResponse = false;
-                if (resp.role == "system") continue;
+                if (string.IsNullOrEmpty(resp.content)) continue;
                 _messages.Add(resp);
                 _autoScroll = true;
-                RecordDialogueToMemory(resp.role, resp.content);
+                if (resp.role != "system")
+                {
+                    RecordDialogueToMemory(resp.role, resp.content);
+                }
             }
 
             Text.Font = GameFont.Small;
@@ -138,7 +141,9 @@ namespace RimMind.Storyteller.UI
                 var msg = _messages[i];
                 string prefix = msg.role == "user"
                     ? "RimMind.Storyteller.Dialogue.PlayerPrefix".Translate()
-                    : "RimMind.Storyteller.Dialogue.StorytellerPrefix".Translate();
+                    : msg.role == "system"
+                        ? string.Empty
+                        : "RimMind.Storyteller.Dialogue.StorytellerPrefix".Translate();
                 string line = prefix + msg.content;
                 float lineH = Text.CalcHeight(line, contentWidth - Padding * 2) + Padding;
 
@@ -148,7 +153,11 @@ namespace RimMind.Storyteller.UI
                         new Color(1f, 1f, 1f, 0.03f));
                 }
 
-                GUI.color = msg.role == "user" ? UserColor : StorytellerColor;
+                GUI.color = msg.role == "user"
+                    ? UserColor
+                    : msg.role == "system"
+                        ? new Color(1f, 0.55f, 0.55f)
+                        : StorytellerColor;
                 Widgets.Label(new Rect(Padding, y, contentWidth - Padding * 2, lineH), line);
                 GUI.color = Color.white;
 
@@ -186,7 +195,11 @@ namespace RimMind.Storyteller.UI
             _waitingForResponse = true;
 
             var envelope = LlmRequestEnvelopeBuilder
-                .ForNpc("NPC-storyteller", gameStateInfo: new GameStateInfo().AddSection("dialogue_input", userMsg))
+                .ForNpc(
+                    "NPC-storyteller",
+                    gameStateInfo: new GameStateInfo()
+                        .AddSection("dialogue_input", userMsg)
+                        .AddSection("IsStorytellerChat", "true"))
                 .ForScenarioId(ScenarioIds.Storyteller)
                 .WithModId("RimMind.Storyteller")
                 .WithMaxTokens(400)
@@ -197,13 +210,19 @@ namespace RimMind.Storyteller.UI
             {
                 if (result.IsErr)
                 {
-                    _responseQueue.Enqueue(("system", ""));
+                    string errText = "RimMind.Storyteller.Dialogue.ErrorResponse".CanTranslate()
+                        ? "RimMind.Storyteller.Dialogue.ErrorResponse".Translate(result.Error.Message).ToString()
+                        : $"[Error] {result.Error.Message}";
+                    _responseQueue.Enqueue(("system", errText));
                     return;
                 }
                 string assistantMsg = result.Value.Content?.Trim() ?? "";
                 if (assistantMsg.NullOrEmpty())
                 {
-                    _responseQueue.Enqueue(("system", ""));
+                    string emptyText = "RimMind.Storyteller.Dialogue.EmptyResponse".CanTranslate()
+                        ? "RimMind.Storyteller.Dialogue.EmptyResponse".Translate().ToString()
+                        : "[Error] Empty response from storyteller.";
+                    _responseQueue.Enqueue(("system", emptyText));
                     return;
                 }
                 _responseQueue.Enqueue(("assistant", assistantMsg));
@@ -218,7 +237,9 @@ namespace RimMind.Storyteller.UI
                 var msg = _messages[i];
                 string prefix = msg.role == "user"
                     ? "RimMind.Storyteller.Dialogue.PlayerPrefix".Translate()
-                    : "RimMind.Storyteller.Dialogue.StorytellerPrefix".Translate();
+                    : msg.role == "system"
+                        ? string.Empty
+                        : "RimMind.Storyteller.Dialogue.StorytellerPrefix".Translate();
                 string line = prefix + msg.content;
                 h += Text.CalcHeight(line, width) + Padding;
             }
