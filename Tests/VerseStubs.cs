@@ -12,7 +12,7 @@ namespace Verse
         public static string TranslateSimple(this string key) => key;
     }
     public static class Log { public static void Message(string message) { } }
-    public class Pawn { public int thingIDNumber; }
+    public class Pawn { public int thingIDNumber; public string ThingID => $"Pawn_{thingIDNumber}"; }
     public class WorldPawns { public List<Pawn> AllPawnsAlive { get; } = new(); }
     public class MapPawns { public List<Pawn> FreeColonists { get; } = new(); }
     public class Map : RimWorld.IIncidentTarget { public MapPawns mapPawns { get; } = new(); }
@@ -134,6 +134,23 @@ namespace RimMind.Presentation.Api
 {
     public static class RimMindAPI
     {
+        public static class MainThreadSnapshot
+        {
+            public static RimMind.Application.Common.Threading.MainThreadReader Reader { get; set; } =
+                new RimMind.Application.Common.Threading.MainThreadReader(a => a(), () => true);
+
+            public static System.Threading.Tasks.Task<T> GetAsync<T>(
+                Func<T> readOnMainThread,
+                T fallback = default!,
+                TimeSpan? timeout = null,
+                System.Threading.CancellationToken ct = default)
+                => Reader.ReadAsync(
+                    readOnMainThread,
+                    fallback,
+                    timeout ?? RimMind.Application.Common.Threading.MainThreadReader.DefaultTimeout,
+                    ct);
+        }
+
         public static class Context
         {
             public static string ScenarioStoryteller => RimMind.Application.Common.Models.Context.ScenarioIds.Storyteller;
@@ -166,6 +183,18 @@ namespace RimMind.Presentation.Api
             if (mapColonists != null)
             {
                 var found = mapColonists.FirstOrDefault(p => p.thingIDNumber == thingIdNumber);
+                if (found != null) return found;
+            }
+            return null;
+        }
+
+        public static Verse.Pawn? FindPawnById(string? pawnId)
+        {
+            if (string.IsNullOrEmpty(pawnId)) return null;
+            var mapColonists = Verse.Find.CurrentMap?.mapPawns?.FreeColonists;
+            if (mapColonists != null)
+            {
+                var found = mapColonists.FirstOrDefault(p => p.ThingID == pawnId);
                 if (found != null) return found;
             }
             return null;

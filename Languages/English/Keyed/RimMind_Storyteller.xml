@@ -55,6 +55,8 @@
   <RimMind.Storyteller.Dialogue.StorytellerPrefix>Storyteller: </RimMind.Storyteller.Dialogue.StorytellerPrefix>
   <RimMind.Storyteller.Dialogue.Thinking>● Thinking...</RimMind.Storyteller.Dialogue.Thinking>
   <RimMind.Storyteller.Dialogue.Send>Send</RimMind.Storyteller.Dialogue.Send>
+  <RimMind.Storyteller.Dialogue.ErrorResponse>[Error] {0}</RimMind.Storyteller.Dialogue.ErrorResponse>
+  <RimMind.Storyteller.Dialogue.EmptyResponse>[Error] Empty response from storyteller.</RimMind.Storyteller.Dialogue.EmptyResponse>
   <!-- Patch_IncidentWorker_TryExecute.cs -->
   <RimMind.Storyteller.Context.IncidentOccurred>{0} just occurred</RimMind.Storyteller.Context.IncidentOccurred>
   <!-- StorytellerMemory.cs -->

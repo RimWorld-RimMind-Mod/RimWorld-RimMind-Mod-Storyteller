@@ -206,21 +206,20 @@ namespace RimMind.Storyteller.Memory
                 _playerReactions.RemoveAt(0);
         }
 
-        public string ConsumeReactions(int maxCount)
+        public string PeekReactions(int maxCount)
         {
-            if (_playerReactions.Count == 0)
+            if (_playerReactions.Count == 0 || maxCount <= 0)
             {
                 _consumedReactionsText = null;
                 return string.Empty;
             }
 
             int takeCount = System.Math.Min(maxCount, _playerReactions.Count);
-            var consumed = _playerReactions.Take(takeCount).ToList();
-            _playerReactions.RemoveRange(0, takeCount);
+            var peeked = _playerReactions.Take(takeCount).ToList();
 
             var sb = new StringBuilder();
             sb.AppendLine("RimMind.Storyteller.Prompt.PlayerReactions".Translate());
-            foreach (var r in consumed)
+            foreach (var r in peeked)
             {
                 int day = TensionMath.TicksToDay(r.tick);
                 sb.AppendLine("RimMind.Storyteller.Prompt.ReactionRecordLine".Translate(
@@ -228,6 +227,20 @@ namespace RimMind.Storyteller.Memory
             }
             _consumedReactionsText = sb.ToString().TrimEnd();
             return _consumedReactionsText;
+        }
+
+        public string ConsumeReactions(int maxCount)
+        {
+            if (_playerReactions.Count == 0 || maxCount <= 0)
+            {
+                _consumedReactionsText = null;
+                return string.Empty;
+            }
+
+            string text = PeekReactions(maxCount);
+            int takeCount = System.Math.Min(maxCount, _playerReactions.Count);
+            _playerReactions.RemoveRange(0, takeCount);
+            return text;
         }
 
         public void UpdateTension(IncidentCategoryDef category)

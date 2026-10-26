@@ -33,12 +33,15 @@ namespace RimMind.Storyteller
                     {
                         return null;
                     }
-                    var mem = StorytellerMemory.Instance;
-                    if (mem == null) return null;
-                    string dialogue = mem.GetRecentDialogueSummary(5);
-                    return string.IsNullOrEmpty(dialogue)
-                        ? null
-                        : $"{Tr("RimMind.Storyteller.Dialogue.StorytellerDialogueHeader")}\n{dialogue}";
+                    return await RimMindAPI.MainThreadSnapshot.GetAsync<string?>(() =>
+                    {
+                        var mem = StorytellerMemory.Instance;
+                        if (mem == null) return null;
+                        string dialogue = mem.GetRecentDialogueSummary(5);
+                        return string.IsNullOrEmpty(dialogue)
+                            ? null
+                            : $"{Tr("RimMind.Storyteller.Dialogue.StorytellerDialogueHeader")}\n{dialogue}";
+                    }, null, ct: ct).ConfigureAwait(false);
                 }, ownerMod: ModId, stalenessTicks: 750, invalidationTriggers: new[] { "StorytellerEvent" },
                 cacheScope: CacheScope.Scenario));
 
@@ -50,18 +53,27 @@ namespace RimMind.Storyteller
                     {
                         return null;
                     }
-                    string taskInstruction = RimMindAPI.Prompt.BuildTaskInstruction(
-                        "RimMind.Storyteller.Prompt.TaskInstruction",
-                        null,
-                        "Role", "Goal", "Process", "Constraint", "Example", "Output", "Fallback",
-                        "SystemJsonFormat", "SystemTensionGuidance", "SystemChainGuidance",
-                        "SystemParamsGuidance", "SystemRequirements");
+                    if (ctx.Hints != null
+                        && ctx.Hints.TryGetValue("IsStorytellerChat", out var isChat)
+                        && (isChat is true || (isChat is string isChatStr && string.Equals(isChatStr, "true", System.StringComparison.OrdinalIgnoreCase))))
+                    {
+                        return null;
+                    }
+                    return await RimMindAPI.MainThreadSnapshot.GetAsync<string?>(() =>
+                    {
+                        string taskInstruction = RimMindAPI.Prompt.BuildTaskInstruction(
+                            "RimMind.Storyteller.Prompt.TaskInstruction",
+                            null,
+                            "Role", "Goal", "Process", "Constraint", "Example", "Output", "Fallback",
+                            "SystemJsonFormat", "SystemTensionGuidance", "SystemChainGuidance",
+                            "SystemParamsGuidance", "SystemRequirements");
 
-                    // 将 UI 中存储的 CustomSystemPrompt 前置注入到任务指令中，
-                    // 使玩家自定义的系统层提示词作为最高优先级上下文生效。
-                    return StorytellerContextPolicy.ComposeTaskInstruction(
-                        StorytellerMemory.Instance?.CustomSystemPrompt,
-                        taskInstruction);
+                        // 将 UI 中存储的 CustomSystemPrompt 前置注入到任务指令中，
+                        // 使玩家自定义的系统层提示词作为最高优先级上下文生效。
+                        return StorytellerContextPolicy.ComposeTaskInstruction(
+                            StorytellerMemory.Instance?.CustomSystemPrompt,
+                            taskInstruction);
+                    }, null, ct: ct).ConfigureAwait(false);
                 }, ownerMod: ModId, stalenessTicks: 0, invalidationTriggers: new[] { "StorytellerEvent" },
                 cacheScope: CacheScope.Static));
 
@@ -73,22 +85,25 @@ namespace RimMind.Storyteller
                     {
                         return null;
                     }
-                    var mem = StorytellerMemory.Instance;
-                    if (mem == null) return null;
-                    var sb = new StringBuilder();
-                    sb.AppendLine(Tr("RimMind.Storyteller.Prompt.StorytellerStateHeader"));
-                    StorytellerContextBuilder.AppendDifficultyContext(sb);
-                    StorytellerContextBuilder.AppendThreatLevel(sb);
-                    StorytellerContextBuilder.AppendTensionLabel(sb, mem.TensionLevel);
-                    sb.AppendLine(Tr("RimMind.Storyteller.Prompt.TensionLevel",
-                        $"{(int)(mem.TensionLevel * 100)}%", $"{mem.TensionLevel:F2}"));
-                    string summary = mem.GetRecentSummary(5);
-                    if (!string.IsNullOrEmpty(summary))
-                        sb.AppendLine(summary);
-                    string chains = mem.GetActiveChainsSummary();
-                    if (!string.IsNullOrEmpty(chains))
-                        sb.AppendLine(chains);
-                    return sb.ToString().TrimEnd();
+                    return await RimMindAPI.MainThreadSnapshot.GetAsync<string?>(() =>
+                    {
+                        var mem = StorytellerMemory.Instance;
+                        if (mem == null) return null;
+                        var sb = new StringBuilder();
+                        sb.AppendLine(Tr("RimMind.Storyteller.Prompt.StorytellerStateHeader"));
+                        StorytellerContextBuilder.AppendDifficultyContext(sb);
+                        StorytellerContextBuilder.AppendThreatLevel(sb);
+                        StorytellerContextBuilder.AppendTensionLabel(sb, mem.TensionLevel);
+                        sb.AppendLine(Tr("RimMind.Storyteller.Prompt.TensionLevel",
+                            $"{(int)(mem.TensionLevel * 100)}%", $"{mem.TensionLevel:F2}"));
+                        string summary = mem.GetRecentSummary(5);
+                        if (!string.IsNullOrEmpty(summary))
+                            sb.AppendLine(summary);
+                        string chains = mem.GetActiveChainsSummary();
+                        if (!string.IsNullOrEmpty(chains))
+                            sb.AppendLine(chains);
+                        return sb.ToString().TrimEnd();
+                    }, null, ct: ct).ConfigureAwait(false);
                 }, ownerMod: ModId, stalenessTicks: 3000, invalidationTriggers: new[] { "StorytellerEvent" },
                 cacheScope: CacheScope.Scenario));
 
@@ -100,10 +115,13 @@ namespace RimMind.Storyteller
                     {
                         return null;
                     }
-                    var mem = StorytellerMemory.Instance;
-                    if (mem == null) return null;
-                    string? text = mem.ConsumedReactionsText;
-                    return !string.IsNullOrEmpty(text) ? text : null;
+                    return await RimMindAPI.MainThreadSnapshot.GetAsync<string?>(() =>
+                    {
+                        var mem = StorytellerMemory.Instance;
+                        if (mem == null) return null;
+                        string? text = mem.ConsumedReactionsText;
+                        return !string.IsNullOrEmpty(text) ? text : null;
+                    }, null, ct: ct).ConfigureAwait(false);
                 }, ownerMod: ModId, stalenessTicks: 3000, invalidationTriggers: new[] { "StorytellerEvent" },
                 cacheScope: CacheScope.Scenario));
 
@@ -115,17 +133,20 @@ namespace RimMind.Storyteller
                     {
                         return null;
                     }
-                    var narrations = RimMindAPI.Memory.GetRecentNarrations(5);
-                    if (narrations.Count == 0) return null;
-
-                    var narrationText = new StringBuilder();
-                    narrationText.AppendLine("RimMind.Storyteller.Prompt.RecentIncidents".Translate());
-                    foreach (var narration in narrations)
+                    return await RimMindAPI.MainThreadSnapshot.GetAsync<string?>(() =>
                     {
-                        int day = RimMind.Domain.Common.RimMindTime.TicksToDay(narration.Tick);
-                        narrationText.AppendLine($"[Day {day}] {narration.Content}");
-                    }
-                    return narrationText.ToString().TrimEnd();
+                        var narrations = RimMindAPI.Memory.GetRecentNarrations(5);
+                        if (narrations.Count == 0) return null;
+
+                        var narrationText = new StringBuilder();
+                        narrationText.AppendLine(Tr("RimMind.Storyteller.Prompt.RecentIncidents"));
+                        foreach (var narration in narrations)
+                        {
+                            int day = RimMind.Domain.Common.RimMindTime.TicksToDay(narration.Tick);
+                            narrationText.AppendLine($"[Day {day}] {narration.Content}");
+                        }
+                        return narrationText.ToString().TrimEnd();
+                    }, null, ct: ct).ConfigureAwait(false);
                 }, ownerMod: ModId, stalenessTicks: 3000, invalidationTriggers: new[] { "StorytellerEvent" },
                 cacheScope: CacheScope.Scenario));
         }

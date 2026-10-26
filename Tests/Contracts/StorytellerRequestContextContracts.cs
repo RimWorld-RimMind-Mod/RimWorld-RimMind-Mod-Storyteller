@@ -68,6 +68,13 @@ namespace RimMind.Storyteller.Tests.Contracts
             Assert.True(state.TryTake(out string? incident));
             Assert.Equal("incident", incident);
             Assert.False(state.TryTake(out _));
+
+            var freshAfterLoad = new StorytellerRequestState<string>();
+            Assert.True(freshAfterLoad.IsDirectorHealthy(currentTick: 500000, healthyThresholdTicks: 120000));
+
+            freshAfterLoad.TryDispatch(_ => { }, failureTick: 500000, out _);
+            Assert.True(freshAfterLoad.Fail(1, tick: 500010));
+            Assert.False(freshAfterLoad.IsDirectorHealthy(currentTick: 500100, healthyThresholdTicks: 120000));
         }
 
     }

@@ -17,13 +17,23 @@ namespace RimMind.Storyteller
             string titleKey = isBigThreat
                 ? "RimMind.Storyteller.UI.DeclareTitle"
                 : "RimMind.Storyteller.UI.WhisperTitle";
-            string title = titleKey.Translate(incident.def.LabelCap);
+            string title = titleKey.CanTranslate()
+                ? titleKey.Translate(incident.def.LabelCap).ToString()
+                : (isBigThreat ? $"[Storyteller Threat] {incident.def.LabelCap}" : $"[Storyteller] {incident.def.LabelCap}");
             string description = BuildDescription(incident, incidentResponse);
 
-            string shock = "RimMind.Storyteller.UI.Shock".Translate();
-            string excited = "RimMind.Storyteller.UI.Excited".Translate();
-            string accept = "RimMind.Storyteller.UI.Accept".Translate();
-            string tooltip = "RimMind.Storyteller.UI.NoInterfere".Translate();
+            string shock = "RimMind.Storyteller.UI.Shock".CanTranslate()
+                ? "RimMind.Storyteller.UI.Shock".Translate().ToString()
+                : "Shocked";
+            string excited = "RimMind.Storyteller.UI.Excited".CanTranslate()
+                ? "RimMind.Storyteller.UI.Excited".Translate().ToString()
+                : "Excited";
+            string accept = "RimMind.Storyteller.UI.Accept".CanTranslate()
+                ? "RimMind.Storyteller.UI.Accept".Translate().ToString()
+                : "Accept";
+            string tooltip = "RimMind.Storyteller.UI.NoInterfere".CanTranslate()
+                ? "RimMind.Storyteller.UI.NoInterfere".Translate().ToString()
+                : "Your reaction shapes the storyteller's memory.";
 
             string defName = incident.def.defName;
             string label = incident.def.LabelCap.ToString();
@@ -62,8 +72,9 @@ namespace RimMind.Storyteller
                     : response.reason;
             }
 
-            return "RimMind.Storyteller.UI.DefaultDesc".Translate(
-                incident.def.LabelCap);
+            return "RimMind.Storyteller.UI.DefaultDesc".CanTranslate()
+                ? "RimMind.Storyteller.UI.DefaultDesc".Translate(incident.def.LabelCap).ToString()
+                : $"The storyteller triggered {incident.def.LabelCap}.";
         }
 
         private static void RecordReaction(

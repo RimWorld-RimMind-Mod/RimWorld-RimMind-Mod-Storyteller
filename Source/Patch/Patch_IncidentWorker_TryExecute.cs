@@ -1,3 +1,4 @@
+using System.Linq;
 using HarmonyLib;
 using RimMind.Presentation.Api;
 using RimMind.Storyteller.Memory;
@@ -21,18 +22,34 @@ namespace RimMind.Storyteller.Patch
             memory.RecordIncident(__instance.def, parms.target, Find.TickManager.TicksGame);
             memory.UpdateTension(__instance.def.category);
 
+            bool isThreat = __instance.def.category == IncidentCategoryDefOf.ThreatBig
+                || __instance.def.category == IncidentCategoryDefOf.ThreatSmall;
+            if (!isThreat || parms?.quest != null)
+                return;
+
             RimMindAPI.NotifyIncidentExecuted();
 
             if (RimMindAPI.CanTriggerDialogue)
             {
-                var map = parms.target as Map;
+                var map = parms?.target as Map;
                 if (map != null)
                 {
-                    var colonists = map.mapPawns?.FreeColonistsSpawned;
-                    if (colonists != null && colonists.Count > 0)
+                    var colonists = RimMindPawnLookup.GetEligibleColonists(map).ToList();
+                    if (colonists.Count > 0)
                     {
-                        var pawn = colonists.RandomElement();
-                        string incidentContext = "RimMind.Storyteller.Context.IncidentOccurred".Translate(__instance.def.label);
+                        Pawn pawn;
+                        Rand.PushState(GenTicks.TicksAbs ^ __instance.def.shortHash);
+                        try
+                        {
+                            pawn = colonists.RandomElement();
+                        }
+                        finally
+                        {
+                            Rand.PopState();
+                        }
+                        string incidentContext = "RimMind.Storyteller.Context.IncidentOccurred".CanTranslate()
+                            ? "RimMind.Storyteller.Context.IncidentOccurred".Translate(__instance.def.label).ToString()
+                            : $"Incident occurred: {__instance.def.label}";
                         RimMindAPI.TriggerDialogue(pawn, incidentContext);
                     }
                 }

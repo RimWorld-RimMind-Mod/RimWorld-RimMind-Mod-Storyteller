@@ -55,6 +55,8 @@
   <RimMind.Storyteller.Dialogue.StorytellerPrefix>叙事者: </RimMind.Storyteller.Dialogue.StorytellerPrefix>
   <RimMind.Storyteller.Dialogue.Thinking>● 正在思考...</RimMind.Storyteller.Dialogue.Thinking>
   <RimMind.Storyteller.Dialogue.Send>发送</RimMind.Storyteller.Dialogue.Send>
+  <RimMind.Storyteller.Dialogue.ErrorResponse>[错误] {0}</RimMind.Storyteller.Dialogue.ErrorResponse>
+  <RimMind.Storyteller.Dialogue.EmptyResponse>[错误] 叙事者返回了空响应。</RimMind.Storyteller.Dialogue.EmptyResponse>
   <!-- Patch_IncidentWorker_TryExecute.cs -->
   <RimMind.Storyteller.Context.IncidentOccurred>刚刚发生了 {0}</RimMind.Storyteller.Context.IncidentOccurred>
   <!-- StorytellerMemory.cs -->

@@ -1,12 +1,10 @@
-using System.Linq;
 using RimMind.Presentation.Api;
 using Verse;
 
 namespace RimMind.Storyteller.Extensions
 {
     /// <summary>
-    /// ContextKey 提供者共享的小人解析逻辑。
-    /// 优先通过 RimMindPawnLookup 与当前地图的自由殖民者查找，最后回退到 WorldPawns。
+    /// ContextKey 提供者共享的小人解析逻辑，统一委托给 <see cref="RimMindPawnLookup"/>（不扫描 WorldPawns）。
     /// </summary>
     public static class PawnLookup
     {
@@ -14,19 +12,12 @@ namespace RimMind.Storyteller.Extensions
         /// 按 thingIDNumber 查找小人。id 无效（&lt;= 0）或未找到时返回 null。
         /// </summary>
         public static Pawn? FindPawnById(int pawnId)
-        {
-            if (pawnId <= 0)
-                return null;
+            => pawnId <= 0 ? null : RimMindPawnLookup.FindPawnByNumber(pawnId);
 
-            Pawn? activePawn = RimMindPawnLookup.FindPawnByNumber(pawnId);
-            if (activePawn != null)
-                return activePawn;
-
-            return PawnLookupCore.FindById(
-                pawnId,
-                () => Find.CurrentMap?.mapPawns?.FreeColonists ?? Enumerable.Empty<Pawn>(),
-                () => Find.WorldPawns?.AllPawnsAlive,
-                pawn => pawn.thingIDNumber);
-        }
+        /// <summary>
+        /// 按字符串 ThingID 查找小人。id 为空或未找到时返回 null。
+        /// </summary>
+        public static Pawn? FindById(string? pawnId)
+            => RimMindPawnLookup.FindPawnById(pawnId);
     }
 }

@@ -20,6 +20,8 @@ namespace RimMind.Storyteller
         public bool IsActive => RequestCoordinator.IsActive;
         public int LastSuccessTick => RequestCoordinator.LastSuccessTick;
         public int LastFailTick => RequestCoordinator.LastFailTick;
+        public bool IsDirectorHealthy(int currentTick, int healthyThresholdTicks) =>
+            RequestCoordinator.IsDirectorHealthy(currentTick, healthyThresholdTicks);
 
         public int GetEstimatedTicksUntilNextEvent()
         {

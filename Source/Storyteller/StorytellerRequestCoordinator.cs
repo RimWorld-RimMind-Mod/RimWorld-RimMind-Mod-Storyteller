@@ -46,6 +46,8 @@ namespace RimMind.Storyteller
 
         public int LastSuccessTick => _requestState.LastSuccessTick;
         public int LastFailTick => _requestState.LastFailTick;
+        public bool IsDirectorHealthy(int currentTick, int healthyThresholdTicks) =>
+            _requestState.IsDirectorHealthy(currentTick, healthyThresholdTicks);
 
         public bool ApplyWorldMaintenance()
         {
@@ -93,7 +95,7 @@ namespace RimMind.Storyteller
             bool dispatched = _requestState.TryDispatch(
                 token =>
                 {
-                    _memory.ConsumeReactions(20);
+                    _memory.PeekReactions(20);
                     if (forced)
                     {
                         RimMindAPI.ClearModCooldown("Storyteller");
@@ -145,7 +147,7 @@ namespace RimMind.Storyteller
                 return;
 
             int now = Find.TickManager.TicksGame;
-            if (result.IsErr)
+            if (result.IsErr && result.Error.Code == RimMindErrorCode.Cancelled) { _requestState.Fail(requestToken, now); return; } if (result.IsErr)
             {
                 _requestState.Fail(requestToken, now);
                 RimMindErrors.Warn(
@@ -171,6 +173,8 @@ namespace RimMind.Storyteller
 
             if (!_requestState.Publish(requestToken, incident, now))
                 return;
+
+            _memory.ConsumeReactions(20);
 
             if (response != null)
             {
