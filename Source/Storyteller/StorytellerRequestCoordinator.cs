@@ -1,6 +1,5 @@
 using System;
 using System.Linq;
-using RimMind.Application.Features.Llm;
 using RimMind.Domain.Llm;
 using RimMind.Domain.ValueObjects;
 using RimMind.Presentation.Api;
@@ -98,7 +97,7 @@ namespace RimMind.Storyteller
                     _memory.PeekReactions(20);
                     if (forced)
                     {
-                        RimMindAPI.ClearModCooldown("Storyteller");
+                        RimMindAPI.ClearModCooldown(StorytellerRequestIds.RequestModId);
                         Log.Message(
                             "[RimMind-Storyteller] ForceRequest: sending structured AI request");
                     }
@@ -124,14 +123,10 @@ namespace RimMind.Storyteller
             IIncidentTarget target,
             long requestToken)
         {
-            var envelope = LlmRequestEnvelopeBuilder
-                .ForScenario(RimMindAPI.Context.ScenarioStoryteller)
-                .WithModId("RimMind.Storyteller")
-                .WithSchema(RimMindAPI.Context.SchemaIncidentOutput)
-                .WithMaxTokens(400)
-                .WithTemperature(0.8f)
-                .WithNpcId(npcId)
-                .Build();
+            var envelope = StorytellerIncidentRequestFactory.Create(
+                RimMindAPI.Context.ScenarioStoryteller,
+                RimMindAPI.Context.SchemaIncidentOutput,
+                npcId);
 
             RimMindAPI.Request.Send(
                 envelope,
