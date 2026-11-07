@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Xml.Linq;
 using RimMind.Storyteller.Extensions;
 using RimMind.Storyteller.Memory;
 using RimMind.Testing;
@@ -20,7 +22,8 @@ namespace RimMind.Storyteller.Tests.Contracts
                 ("truncated and trailing comma responses are repaired", RecoverableResponsesAreRepaired),
                 ("empty malformed and missing def names become no incident", InvalidResponsesBecomeNoIncident),
                 ("pawn lookup rejects invalid ids before world then map lookup", PawnLookupOrderRemainsStable),
-                ("only threat categories notify the player", NotificationPolicyRemainsNarrow));
+                ("only threat categories notify the player", NotificationPolicyRemainsNarrow),
+                ("director xml includes vanilla trade visitors and random quest comps", DirectorDefIncludesVanillaEcosystemComps));
         }
 
         private static void ValidResponsesRetainMetadata()
@@ -141,19 +144,64 @@ namespace RimMind.Storyteller.Tests.Contracts
         [Fact]
         public void Nonhostile_faction_and_unknown_strategy_hints_do_not_override_defaults()
         {
-            var definition = new IncidentDef { defName = "RaidEnemy" };
+            var raidDef = new IncidentDef { defName = "RaidEnemy" };
+            raidDef.category.defName = "ThreatBig";
+            var caravanDef = new IncidentDef { defName = "TraderCaravanArrival" };
+            caravanDef.category.defName = "FactionArrival";
+            var friendlyRaidDef = new IncidentDef { defName = "RaidFriendly" };
+            friendlyRaidDef.category.defName = "ThreatBig";
+
             var ally = new Faction { IsHostile = false };
-            ally.def.defName = "Ally";
-            DefDatabase<IncidentDef>.Definitions[definition.defName] = definition;
+            ally.def.defName = "OutlanderCivil";
+            var defeatedAlly = new Faction { IsHostile = false, defeated = true };
+            defeatedAlly.def.defName = "DefeatedCivil";
+            var pirate = new Faction { IsHostile = true };
+            pirate.def.defName = "Pirate";
+
+            DefDatabase<IncidentDef>.Definitions[raidDef.defName] = raidDef;
+            DefDatabase<IncidentDef>.Definitions[caravanDef.defName] = caravanDef;
+            DefDatabase<IncidentDef>.Definitions[friendlyRaidDef.defName] = friendlyRaidDef;
             Find.FactionManager.AllFactions.Add(ally);
+            Find.FactionManager.AllFactions.Add(defeatedAlly);
+            Find.FactionManager.AllFactions.Add(pirate);
             try
             {
-                var (incident, _) = RimMindIncidentSelector.ParseResponse(
-                    "{\"defName\":\"RaidEnemy\",\"params\":{\"faction_hint\":\"Ally\",\"raid_strategy_hint\":\"Unknown\"}}",
+                Assert.True(IncidentSelectionPolicy.RequiresHostileFaction("RaidEnemy", "ThreatBig"));
+                Assert.True(IncidentSelectionPolicy.RequiresHostileFaction("ManhunterPack", "ThreatSmall"));
+                Assert.False(IncidentSelectionPolicy.RequiresHostileFaction("RaidFriendly", "ThreatBig"));
+                Assert.False(IncidentSelectionPolicy.RequiresHostileFaction("TraderCaravanArrival", "FactionArrival"));
+                Assert.False(IncidentSelectionPolicy.RequiresHostileFaction("OrbitalTraderArrival", "OrbitalVisitor"));
+
+                var (raidIncident, _) = RimMindIncidentSelector.ParseResponse(
+                    "{\"defName\":\"RaidEnemy\",\"params\":{\"faction_hint\":\"OutlanderCivil\",\"raid_strategy_hint\":\"Unknown\"}}",
                     new Map(), new StorytellerComp());
-                Assert.NotNull(incident);
-                Assert.Null(incident!.parms.faction);
-                Assert.Null(incident.parms.raidStrategy);
+                Assert.NotNull(raidIncident);
+                Assert.Null(raidIncident!.parms.faction);
+                Assert.Null(raidIncident.parms.raidStrategy);
+
+                var (caravanIncident, _) = RimMindIncidentSelector.ParseResponse(
+                    "{\"defName\":\"TraderCaravanArrival\",\"params\":{\"faction_hint\":\"OutlanderCivil\"}}",
+                    new Map(), new StorytellerComp());
+                Assert.NotNull(caravanIncident);
+                Assert.Same(ally, caravanIncident!.parms.faction);
+
+                var (hostileCaravanIncident, _) = RimMindIncidentSelector.ParseResponse(
+                    "{\"defName\":\"TraderCaravanArrival\",\"params\":{\"faction_hint\":\"Pirate\"}}",
+                    new Map(), new StorytellerComp());
+                Assert.NotNull(hostileCaravanIncident);
+                Assert.Null(hostileCaravanIncident!.parms.faction);
+
+                var (defeatedCaravanIncident, _) = RimMindIncidentSelector.ParseResponse(
+                    "{\"defName\":\"TraderCaravanArrival\",\"params\":{\"faction_hint\":\"DefeatedCivil\"}}",
+                    new Map(), new StorytellerComp());
+                Assert.NotNull(defeatedCaravanIncident);
+                Assert.Null(defeatedCaravanIncident!.parms.faction);
+
+                var (friendlyRaidIncident, _) = RimMindIncidentSelector.ParseResponse(
+                    "{\"defName\":\"RaidFriendly\",\"params\":{\"faction_hint\":\"OutlanderCivil\"}}",
+                    new Map(), new StorytellerComp());
+                Assert.NotNull(friendlyRaidIncident);
+                Assert.Same(ally, friendlyRaidIncident!.parms.faction);
             }
             finally
             {
@@ -238,6 +286,48 @@ namespace RimMind.Storyteller.Tests.Contracts
                 true, StorytellerIncidentKind.Other));
             Assert.False(IncidentSelectionPolicy.ShouldNotify(
                 false, StorytellerIncidentKind.ThreatBig));
+        }
+
+        private static void DirectorDefIncludesVanillaEcosystemComps()
+        {
+            var dir = new DirectoryInfo(AppContext.BaseDirectory);
+            while (dir != null && !File.Exists(Path.Combine(dir.FullName, "Defs", "StorytellerDefs", "RimMindDirector.xml")))
+            {
+                string candidate = Path.Combine(dir.FullName, "RimMind-Storyteller", "Defs", "StorytellerDefs", "RimMindDirector.xml");
+                if (File.Exists(candidate))
+                {
+                    dir = new DirectoryInfo(Path.Combine(dir.FullName, "RimMind-Storyteller"));
+                    break;
+                }
+                dir = dir.Parent;
+            }
+
+            Assert.NotNull(dir);
+            string xmlPath = Path.Combine(dir!.FullName, "Defs", "StorytellerDefs", "RimMindDirector.xml");
+            XDocument doc = XDocument.Load(xmlPath);
+            var comps = doc.Root!
+                .Elements("StorytellerDef")
+                .Single(e => e.Element("defName")?.Value == "RimMindDirector")
+                .Element("comps")!
+                .Elements("li")
+                .ToList();
+
+            var incidents = comps
+                .Select(c => c.Element("incident")?.Value)
+                .Where(v => !string.IsNullOrEmpty(v))
+                .ToHashSet(StringComparer.Ordinal);
+            var classes = comps
+                .Select(c => c.Attribute("Class")?.Value)
+                .Where(v => !string.IsNullOrEmpty(v))
+                .ToHashSet(StringComparer.Ordinal);
+
+            Assert.Contains("TraderCaravanArrival", incidents);
+            Assert.Contains("VisitorGroup", incidents);
+            Assert.Contains("TravelerGroup", incidents);
+            Assert.Contains("RaidFriendly", incidents);
+            Assert.Contains("OrbitalTraderArrival", incidents);
+            Assert.Contains("StorytellerCompProperties_RandomQuest", classes);
+            Assert.Contains("StorytellerCompProperties_ShipChunkDrop", classes);
         }
 
         private sealed class TestPawn

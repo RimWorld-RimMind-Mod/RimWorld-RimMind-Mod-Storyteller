@@ -85,7 +85,7 @@ namespace RimWorld
         public bool allowViolentQuests = true;
     }
     public sealed class Storyteller { public Difficulty difficulty { get; } = new(); }
-    public sealed class IncidentCategoryDef { }
+    public sealed class IncidentCategoryDef { public string defName = "ThreatBig"; }
     public sealed class IncidentDef
     {
         public string defName = "";
@@ -111,9 +111,11 @@ namespace RimWorld
     public sealed class FactionDef { public string defName = ""; }
     public sealed class Faction
     {
-        public static Faction OfPlayer { get; } = new();
+        public static Faction OfPlayer { get; } = new() { IsPlayer = true };
         public FactionDef def { get; } = new();
+        public bool IsPlayer;
         public bool IsHostile;
+        public bool defeated;
         public bool HostileTo(Faction other) => IsHostile;
     }
     public sealed class FactionManager { public List<Faction> AllFactions { get; } = new(); }
