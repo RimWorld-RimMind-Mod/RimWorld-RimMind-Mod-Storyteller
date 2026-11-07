@@ -2,6 +2,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using RimMind.Application.Features.Json;
 
 namespace RimMind.Storyteller
 {
@@ -139,7 +140,7 @@ namespace RimMind.Storyteller
             }
             catch
             {
-                return Repair(clean);
+                return JsonRepairer.TryRepairTruncatedJson(clean) ?? Repair(clean);
             }
         }
 

@@ -1,5 +1,9 @@
+using System;
+using System.Collections.Generic;
 using System.Text;
 using RimMind.Application.Common.Interfaces.Context;
+using RimMind.Application.Common.Models.Context;
+using RimMind.Application.Features.Context;
 using RimMind.Domain.ValueObjects;
 using RimMind.Presentation.Api;
 using RimMind.Storyteller.Extensions;
@@ -13,18 +17,58 @@ namespace RimMind.Storyteller
         private const string ModId = RimMind.Application.Common.Constants.RimMindOwnerConsts.StorytellerModId;
 
         private static string Tr(string key, params object[] args)
-        {
-            try
-            {
-                if (string.IsNullOrEmpty(key)) return string.Empty;
-                string template = key.CanTranslate() ? key.TranslateSimple() : key;
-                return (args == null || args.Length == 0) ? template : string.Format(template, args);
-            }
-            catch { return key ?? string.Empty; }
-        }
+            => RimMindText.TrOr(key, key ?? string.Empty, args);
 
         internal static void RegisterAll()
         {
+            // Register the typed event before any key names it, so the trigger resolves
+            // to a real event (unknown names never fall back to the base bus event).
+            StorytellerStateChangedEvent.Register();
+
+            ScenarioRegistry.Register(new ScenarioDescriptor
+            {
+                Id = ScenarioIds.Storyteller,
+                DefaultBaseRounds = 8,
+                Description = "RimMind.Application.Scenario.Storyteller",
+                DefaultBudget = 0.7f,
+                L4Mode = L4Mode.NarrativeMemory,
+                DefaultExcludeKeys = new[]
+                {
+                    "npc_identity", "pawn_base_info", "fixed_relations",
+                    "ideology", "skills_summary", "health", "mood", "current_job",
+                    "combat_status", "target_info", "task_progress", "npc_commands"
+                },
+                OwnerModId = ModId,
+                RelevanceWeights = new Dictionary<string, float>(StringComparer.Ordinal)
+                {
+                    ["health"] = 0.3f,
+                    ["mood"] = 0.4f,
+                    ["current_job"] = 0.2f,
+                    ["combat_status"] = 0.8f,
+                    ["target_info"] = 0.7f,
+                    ["task_progress"] = 0.3f,
+                    ["nearby_pawns"] = 0.5f,
+                    ["colony_status"] = 0.9f,
+                    ["current_area"] = 0.4f,
+                    ["weather"] = 0.6f,
+                    ["time_of_day"] = 0.5f,
+                    ["season"] = 0.7f,
+                    ["map_structure"] = 0.8f,
+                    ["pawn_base_info"] = 0.3f,
+                    ["fixed_relations"] = 0.3f,
+                    ["ideology"] = 0.4f,
+                    ["skills_summary"] = 0.2f,
+                    ["memory_pawn"] = 0.3f,
+                    ["working_memory"] = 0.2f,
+                    ["memory_narrator"] = 0.9f,
+                    ["storyteller_dialogue"] = 0.6f,
+                    ["storyteller_task"] = 0.95f,
+                    ["storyteller_context"] = 0.95f,
+                    ["storyteller_reactions"] = 0.9f,
+                    ["storyteller_recent_incidents"] = 0.85f
+                }
+            });
+
             RimMindAPI.Context.ContextKeys.Register(new ContextProviderDef(
                 "storyteller_dialogue", ContextLayer.L3_State, 0.5f,
                 async (ctx, ct) =>
@@ -42,7 +86,7 @@ namespace RimMind.Storyteller
                             ? null
                             : $"{Tr("RimMind.Storyteller.Dialogue.StorytellerDialogueHeader")}\n{dialogue}";
                     }, null, ct: ct).ConfigureAwait(false);
-                }, ownerMod: ModId, stalenessTicks: 750, invalidationTriggers: new[] { "StorytellerEvent" },
+                }, ownerMod: ModId, stalenessTicks: 750, invalidationTriggers: new[] { StorytellerStateChangedEvent.EventName },
                 cacheScope: CacheScope.Scenario));
 
             RimMindAPI.Context.ContextKeys.Register(new ContextProviderDef(
@@ -74,7 +118,7 @@ namespace RimMind.Storyteller
                             StorytellerMemory.Instance?.CustomSystemPrompt,
                             taskInstruction);
                     }, null, ct: ct).ConfigureAwait(false);
-                }, ownerMod: ModId, stalenessTicks: 0, invalidationTriggers: new[] { "StorytellerEvent" },
+                }, ownerMod: ModId, stalenessTicks: 0,
                 cacheScope: CacheScope.Static));
 
             RimMindAPI.Context.ContextKeys.Register(new ContextProviderDef(
@@ -104,7 +148,7 @@ namespace RimMind.Storyteller
                             sb.AppendLine(chains);
                         return sb.ToString().TrimEnd();
                     }, null, ct: ct).ConfigureAwait(false);
-                }, ownerMod: ModId, stalenessTicks: 3000, invalidationTriggers: new[] { "StorytellerEvent" },
+                }, ownerMod: ModId, stalenessTicks: 3000, invalidationTriggers: new[] { StorytellerStateChangedEvent.EventName },
                 cacheScope: CacheScope.Scenario));
 
             RimMindAPI.Context.ContextKeys.Register(new ContextProviderDef(
@@ -122,7 +166,7 @@ namespace RimMind.Storyteller
                         string? text = mem.ConsumedReactionsText;
                         return !string.IsNullOrEmpty(text) ? text : null;
                     }, null, ct: ct).ConfigureAwait(false);
-                }, ownerMod: ModId, stalenessTicks: 3000, invalidationTriggers: new[] { "StorytellerEvent" },
+                }, ownerMod: ModId, stalenessTicks: 3000, invalidationTriggers: new[] { StorytellerStateChangedEvent.EventName },
                 cacheScope: CacheScope.Scenario));
 
             RimMindAPI.Context.ContextKeys.Register(new ContextProviderDef(
@@ -147,7 +191,7 @@ namespace RimMind.Storyteller
                         }
                         return narrationText.ToString().TrimEnd();
                     }, null, ct: ct).ConfigureAwait(false);
-                }, ownerMod: ModId, stalenessTicks: 3000, invalidationTriggers: new[] { "StorytellerEvent" },
+                }, ownerMod: ModId, stalenessTicks: 3000, invalidationTriggers: new[] { StorytellerStateChangedEvent.EventName },
                 cacheScope: CacheScope.Scenario));
         }
 

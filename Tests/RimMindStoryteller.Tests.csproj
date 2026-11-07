@@ -31,12 +31,15 @@
     <Compile Include="../Source/Storyteller/StorytellerResponseParserPure.cs" LinkBase="Storyteller" />
     <Compile Include="../Source/Storyteller/IncidentSelectionPolicy.cs" LinkBase="Storyteller" />
     <Compile Include="../Source/Storyteller/StorytellerRequestState.cs" LinkBase="Storyteller" />
+    <Compile Include="../Source/Storyteller/StorytellerRequestIds.cs" LinkBase="Storyteller" />
+    <Compile Include="../Source/Storyteller/StorytellerStateChangedEvent.cs" LinkBase="Storyteller" />
     <Compile Include="../Source/Storyteller/StorytellerContextProviderRegistrar.cs" LinkBase="Storyteller" />
     <Compile Include="../Source/Storyteller/RimMindIncidentSelector.cs" LinkBase="Storyteller" />
     <Compile Include="../Source/Extensions/StorytellerContextBuilder.cs" LinkBase="Extensions" />
     <Compile Include="../Source/Extensions/PawnLookup.cs" LinkBase="Extensions" />
     <Compile Include="../Source/Extensions/PawnLookupCore.cs" LinkBase="Extensions" />
     <Compile Include="../Source/Extensions/StorytellerContextPolicy.cs" LinkBase="Extensions" />
+    <Compile Include="../../RimMind-Core/Source/Presentation/Common/RimMindText.cs" Link="Support/RimMindText.cs" />
   </ItemGroup>
 
   <ItemGroup>

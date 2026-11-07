@@ -7,7 +7,7 @@ using Verse;
 
 namespace RimMind.Storyteller.Patch
 {
-    [HarmonyPatch(typeof(IncidentWorker), "TryExecute")]
+    [HarmonyPatch(typeof(IncidentWorker), nameof(IncidentWorker.TryExecute))]
     public static class Patch_IncidentWorker_TryExecute
     {
         static void Postfix(IncidentWorker __instance, IncidentParms parms, bool __result)

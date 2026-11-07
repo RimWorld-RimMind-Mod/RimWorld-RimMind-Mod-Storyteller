@@ -201,7 +201,8 @@ namespace RimMind.Storyteller.UI
                         .AddSection("dialogue_input", userMsg)
                         .AddSection("IsStorytellerChat", "true"))
                 .ForScenarioId(ScenarioIds.Storyteller)
-                .WithModId("RimMind.Storyteller")
+                .WithModId(StorytellerRequestIds.RequestModId)
+                .WithHint("IsStorytellerChat", "true")
                 .WithMaxTokens(400)
                 .WithTemperature(0.9f)
                 .Build();
@@ -253,6 +254,8 @@ namespace RimMind.Storyteller.UI
 
             int tick = Find.TickManager.TicksGame;
             memory.RecordDialogue(role, content, tick);
+            // storyteller_dialogue context is cached; the new turn must reach the next prompt.
+            StorytellerStateChangedEvent.Publish();
 
             TryPushToMemoryMod(role, content, tick);
         }

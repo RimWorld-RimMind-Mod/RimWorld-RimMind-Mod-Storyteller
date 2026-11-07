@@ -11,6 +11,7 @@ namespace Verse
         public static bool CanTranslate(this string key) => false;
         public static string TranslateSimple(this string key) => key;
     }
+    public static class UnityData { public static bool IsInMainThread = true; }
     public static class Log { public static void Message(string message) { } }
     public class Pawn { public int thingIDNumber; public string ThingID => $"Pawn_{thingIDNumber}"; }
     public class WorldPawns { public List<Pawn> AllPawnsAlive { get; } = new(); }
@@ -172,6 +173,12 @@ namespace RimMind.Presentation.Api
             public static IReadOnlyList<Narration> GetRecentNarrations(int count) => Narrations.Take(count).ToList();
         }
         public sealed class Narration { public int Tick; public string Content = ""; }
+        public static class Bus
+        {
+            public static void RegisterEventType<T>(string name) where T : RimMind.Domain.Events.AgentBusEvent
+                => RimMind.Application.Features.AgentBus.AgentBusImpl.RegisterKnownEventType(name, typeof(T));
+            public static void PublishOnMainThread<T>(T evt) where T : RimMind.Domain.Events.AgentBusEvent { }
+        }
     }
 
     public static class RimMindPawnLookup
