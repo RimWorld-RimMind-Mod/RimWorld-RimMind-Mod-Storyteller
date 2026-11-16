@@ -20,5 +20,12 @@ namespace RimMind.Storyteller
             => notificationsEnabled
                && (kind == StorytellerIncidentKind.ThreatBig
                    || kind == StorytellerIncidentKind.ThreatSmall);
+
+        public static bool RequiresHostileFaction(
+            string? incidentDefName,
+            string? categoryDefName)
+            => (string.Equals(categoryDefName, "ThreatBig", StringComparison.Ordinal)
+                || string.Equals(categoryDefName, "ThreatSmall", StringComparison.Ordinal))
+               && !string.Equals(incidentDefName, "RaidFriendly", StringComparison.Ordinal);
     }
 }
