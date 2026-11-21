@@ -1,4 +1,5 @@
 using System.Text;
+using RimMind.Presentation.Api;
 using RimWorld;
 using Verse;
 
@@ -86,7 +87,7 @@ namespace RimMind.Storyteller.Extensions
             string? guidanceKey = ResolveDifficultyGuidanceKey(tier);
             if (guidanceKey != null)
             {
-                string guidanceText = guidanceKey.CanTranslate() ? guidanceKey.TranslateSimple() : guidanceKey;
+                string guidanceText = RimMindAPI.Text.TrOr(guidanceKey, guidanceKey);
                 sb.AppendLine("RimMind.Storyteller.Prompt.DifficultyGuidance".Translate(guidanceText));
             }
         }

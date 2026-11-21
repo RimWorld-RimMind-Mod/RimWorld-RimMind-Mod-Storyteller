@@ -212,6 +212,7 @@ namespace RimMind.Storyteller.Tests.Contracts
 
         private static void PawnLookupOrderRemainsStable()
         {
+#pragma warning disable CS0618
             int enumerations = 0;
             IEnumerable<TestPawn> Track(params TestPawn[] pawns)
             {
@@ -274,6 +275,7 @@ namespace RimMind.Storyteller.Tests.Contracts
                 Find.CurrentMap = null;
                 Find.WorldPawns.AllPawnsAlive.Clear();
             }
+#pragma warning restore CS0618
         }
 
         private static void NotificationPolicyRemainsNarrow()

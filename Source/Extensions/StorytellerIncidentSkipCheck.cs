@@ -13,6 +13,6 @@ namespace RimMind.Storyteller
         public bool ShouldSkip(in SkipCheckArgs args) => !_settings.enableIntervalTrigger;
 
         public static bool ShouldSkipStorytellerIncident()
-            => RimMind.Presentation.Api.RimMindAPI.ShouldSkipStorytellerIncident();
+            => RimMind.Presentation.Api.RimMindAPI.Ext.ShouldSkipStorytellerIncident();
     }
 }

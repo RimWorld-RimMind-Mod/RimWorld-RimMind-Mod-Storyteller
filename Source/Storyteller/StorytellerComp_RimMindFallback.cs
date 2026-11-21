@@ -30,7 +30,7 @@ namespace RimMind.Storyteller
             if (aiComp != null && aiComp.IsActive)
                 yield break;
 
-            if (RimMindAPI.IsConfigured() && settings.enableIntervalTrigger && aiComp != null)
+            if (RimMindAPI.Settings.IsConfigured() && settings.enableIntervalTrigger && aiComp != null)
             {
                 int now = Find.TickManager.TicksGame;
                 float directorMtb = settings.mtbDays;

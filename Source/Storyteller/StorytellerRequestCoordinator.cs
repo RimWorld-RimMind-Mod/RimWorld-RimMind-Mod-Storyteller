@@ -75,7 +75,7 @@ namespace RimMind.Storyteller
             if (target is not Map)
                 return false;
 
-            if (!RimMindAPI.IsConfigured())
+            if (!RimMindAPI.Settings.IsConfigured())
             {
                 RimMindErrors.Warn(
                     "[RimMind-Storyteller] ForceRequest: API not configured");
@@ -97,7 +97,7 @@ namespace RimMind.Storyteller
                     _memory.PeekReactions(20);
                     if (forced)
                     {
-                        RimMindAPI.ClearModCooldown(StorytellerRequestIds.RequestModId);
+                        RimMindAPI.Request.ClearModCooldown(StorytellerRequestIds.RequestModId);
                         Log.Message(
                             "[RimMind-Storyteller] ForceRequest: sending structured AI request");
                     }
@@ -217,19 +217,12 @@ namespace RimMind.Storyteller
 
         private bool TryResolveMemory()
         {
-            if (_memory != null)
-                return true;
-
-            _memory = StorytellerMemory.Instance!;
-            if (_memory == null && Find.World != null)
+            var current = StorytellerMemory.Instance;
+            if (current != null)
             {
-                _memory = Find.World.components
-                    .OfType<StorytellerMemory>()
-                    .FirstOrDefault()!;
-            }
-
-            if (_memory != null)
+                _memory = current;
                 return true;
+            }
 
             RimMindErrors.Warn(
                 "[RimMind-Storyteller] StorytellerMemory not found, skipping.");

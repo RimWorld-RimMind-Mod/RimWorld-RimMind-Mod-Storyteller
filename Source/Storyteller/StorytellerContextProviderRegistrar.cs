@@ -8,7 +8,6 @@ using RimMind.Domain.ValueObjects;
 using RimMind.Presentation.Api;
 using RimMind.Storyteller.Extensions;
 using RimMind.Storyteller.Memory;
-using Verse;
 
 namespace RimMind.Storyteller
 {
@@ -16,8 +15,33 @@ namespace RimMind.Storyteller
     {
         private const string ModId = RimMind.Application.Common.Constants.RimMindOwnerConsts.StorytellerModId;
 
+        private const string DefaultSystemInstruction =
+            "You are the RimWorld storyteller AI. Based on the colony's current situation, select the most appropriate incident event. " +
+            "Consider colony wealth, threat level, food supply, colonist count, and recent events. " +
+            "Output must be valid JSON matching the IncidentOutput schema.";
+
+        private const string DefaultWorldRules =
+            "Storyteller rules:\n" +
+            "- Only select from available RimWorld incident definitions\n" +
+            "- Consider threat level relative to colony wealth\n" +
+            "- Balance positive and negative events\n" +
+            "- Food shortages should trigger related events\n" +
+            "- Low mood colonists may need positive events";
+
+        private const string DefaultChatSystemInstruction =
+            "You are the AI Storyteller of this RimWorld colony speaking directly with the player through the Storyteller Altar. " +
+            "Respond in character as the narrator and director — perceptive, dramatic, and aware of colony history, narrative tension, and recent events. " +
+            "Reply in concise natural prose (do NOT output JSON). Consider player wishes without blindly obeying them.";
+
         private static string Tr(string key, params object[] args)
-            => RimMindText.TrOr(key, key ?? string.Empty, args);
+            => RimMindAPI.Text.TrOr(key, key ?? string.Empty, args);
+
+        private static bool IsStorytellerChat(IReadOnlyDictionary<string, object?>? hints)
+        {
+            return hints != null
+                && hints.TryGetValue("IsStorytellerChat", out var isChat)
+                && (isChat is true || (isChat is string isChatStr && string.Equals(isChatStr, "true", StringComparison.OrdinalIgnoreCase)));
+        }
 
         internal static void RegisterAll()
         {
@@ -25,7 +49,7 @@ namespace RimMind.Storyteller
             // to a real event (unknown names never fall back to the base bus event).
             StorytellerStateChangedEvent.Register();
 
-            ScenarioRegistry.Register(new ScenarioDescriptor
+            RimMindAPI.Context.RegisterScenario(new ScenarioDescriptor
             {
                 Id = ScenarioIds.Storyteller,
                 DefaultBaseRounds = 8,
@@ -61,6 +85,8 @@ namespace RimMind.Storyteller
                     ["memory_pawn"] = 0.3f,
                     ["working_memory"] = 0.2f,
                     ["memory_narrator"] = 0.9f,
+                    ["storyteller_system"] = 1.0f,
+                    ["storyteller_rules"] = 0.98f,
                     ["storyteller_dialogue"] = 0.6f,
                     ["storyteller_task"] = 0.95f,
                     ["storyteller_context"] = 0.95f,
@@ -68,6 +94,52 @@ namespace RimMind.Storyteller
                     ["storyteller_recent_incidents"] = 0.85f
                 }
             });
+
+            RimMindAPI.Context.ContextKeys.Register(new ContextProviderDef(
+                "storyteller_system", ContextLayer.L0_Static, 1.0f,
+                async (ctx, ct) =>
+                {
+                    if (ctx.Scenario != RimMindAPI.Context.ScenarioStoryteller)
+                    {
+                        return null;
+                    }
+                    bool isChat = IsStorytellerChat(ctx.Hints);
+                    return await RimMindAPI.MainThreadSnapshot.GetAsync<string?>(() =>
+                    {
+                        if (isChat)
+                        {
+                            string chatPrompt = RimMindAPI.Text.TrOr(
+                                "RimMind.Storyteller.Prompt.ChatSystemInstruction",
+                                DefaultChatSystemInstruction);
+                            return StorytellerContextPolicy.ComposeTaskInstruction(
+                                StorytellerMemory.Instance?.CustomSystemPrompt,
+                                chatPrompt);
+                        }
+
+                        return RimMindAPI.Text.TrOr(
+                            "RimMind.Storyteller.Prompt.SystemInstruction",
+                            DefaultSystemInstruction);
+                    }, null, ct: ct).ConfigureAwait(false);
+                }, ownerMod: ModId, stalenessTicks: 0,
+                cacheScope: CacheScope.Static));
+
+            RimMindAPI.Context.ContextKeys.Register(new ContextProviderDef(
+                "storyteller_rules", ContextLayer.L0_Static, 0.98f,
+                async (ctx, ct) =>
+                {
+                    if (ctx.Scenario != RimMindAPI.Context.ScenarioStoryteller)
+                    {
+                        return null;
+                    }
+                    if (IsStorytellerChat(ctx.Hints))
+                    {
+                        return null;
+                    }
+                    return await RimMindAPI.MainThreadSnapshot.GetAsync<string?>(() =>
+                        RimMindAPI.Text.TrOr("RimMind.Storyteller.Prompt.WorldRules", DefaultWorldRules),
+                        null, ct: ct).ConfigureAwait(false);
+                }, ownerMod: ModId, stalenessTicks: 0,
+                cacheScope: CacheScope.Static));
 
             RimMindAPI.Context.ContextKeys.Register(new ContextProviderDef(
                 "storyteller_dialogue", ContextLayer.L3_State, 0.5f,
@@ -97,9 +169,7 @@ namespace RimMind.Storyteller
                     {
                         return null;
                     }
-                    if (ctx.Hints != null
-                        && ctx.Hints.TryGetValue("IsStorytellerChat", out var isChat)
-                        && (isChat is true || (isChat is string isChatStr && string.Equals(isChatStr, "true", System.StringComparison.OrdinalIgnoreCase))))
+                    if (IsStorytellerChat(ctx.Hints))
                     {
                         return null;
                     }
