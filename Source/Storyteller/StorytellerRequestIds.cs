@@ -6,7 +6,7 @@ namespace RimMind.Storyteller
     /// <summary>
     /// Storyteller-owned identity used by Core's request queue.
     /// The same id must be passed to <c>LlmRequestEnvelopeBuilder.WithModId</c>, to
-    /// <c>RimMindAPI.ClearModCooldown</c> / <c>GetModCooldownTicksLeft</c>, and exposed by
+    /// <c>RimMindAPI.Request.ClearModCooldown</c> / <c>GetModCooldownTicksLeft</c>, and exposed by
     /// <c>StorytellerModCooldown</c>: Core stores per-mod cooldowns under the envelope ModId,
     /// so any other spelling silently targets a cooldown key that never exists.
     /// </summary>
@@ -33,6 +33,7 @@ namespace RimMind.Storyteller
                 .WithMaxTokens(MaxTokens)
                 .WithTemperature(Temperature)
                 .WithNpcId(npcId)
+                .WithRequireAliveColonist(false)
                 .Build();
     }
 }

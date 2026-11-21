@@ -1,9 +1,8 @@
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
+using RimMind.Presentation.Api;
 using RimWorld;
 using RimWorld.Planet;
-using UnityEngine;
 using Verse;
 
 namespace RimMind.Storyteller.Memory
@@ -99,8 +98,11 @@ namespace RimMind.Storyteller.Memory
 
         public string CustomSystemPrompt = string.Empty;
 
-        private static StorytellerMemory? _instance;
-        public static StorytellerMemory? Instance => _instance;
+        private static readonly WorldScopedComponentCache<StorytellerMemory> _instanceCache =
+            new WorldScopedComponentCache<StorytellerMemory>();
+        public static StorytellerMemory? Instance => _instanceCache.Get();
+
+        internal static void ResetInstanceCache() => _instanceCache.Reset();
 
         private float _tensionLevel = 0.5f;
         public float TensionLevel => _tensionLevel;
@@ -112,7 +114,6 @@ namespace RimMind.Storyteller.Memory
 
         public StorytellerMemory(World world) : base(world)
         {
-            _instance = this;
         }
 
         public IReadOnlyList<IncidentHistoryRecord> Records => _records;
@@ -145,18 +146,7 @@ namespace RimMind.Storyteller.Memory
         }
 
         public string GetRecentSummary(int count)
-        {
-            if (_records.Count == 0) return string.Empty;
-
-            var sb = new StringBuilder();
-            var recent = _records.Skip(System.Math.Max(0, _records.Count - count)).ToList();
-            foreach (var r in recent)
-            {
-                int day = TensionMath.TicksToDay(r.TriggeredTick);
-                sb.AppendLine("RimMind.Storyteller.Prompt.DaySummary".Translate(day, r.Label, r.MapName));
-            }
-            return sb.ToString().TrimEnd();
-        }
+            => StorytellerMemoryPromptFormatter.FormatRecentIncidents(_records, count);
 
         public void ClearRecords() => _records.Clear();
 
@@ -171,21 +161,7 @@ namespace RimMind.Storyteller.Memory
         }
 
         public string GetRecentDialogueSummary(int count)
-        {
-            if (_dialogueRecords.Count == 0) return string.Empty;
-
-            var sb = new StringBuilder();
-            var recent = _dialogueRecords.Skip(System.Math.Max(0, _dialogueRecords.Count - count)).ToList();
-            foreach (var r in recent)
-            {
-                int day = TensionMath.TicksToDay(r.tick);
-                string prefix = r.role == "user"
-                    ? "RimMind.Storyteller.Prompt.RolePlayer".Translate()
-                    : "RimMind.Storyteller.Prompt.RoleNarrator".Translate();
-                sb.AppendLine("RimMind.Storyteller.Prompt.DialogueRecordLine".Translate($"{day}", prefix, r.content));
-            }
-            return sb.ToString().TrimEnd();
-        }
+            => StorytellerMemoryPromptFormatter.FormatRecentDialogues(_dialogueRecords, count);
 
         public void ClearDialogueRecords() => _dialogueRecords.Clear();
 
@@ -208,25 +184,15 @@ namespace RimMind.Storyteller.Memory
 
         public string PeekReactions(int maxCount)
         {
-            if (_playerReactions.Count == 0 || maxCount <= 0)
+            string formatted = StorytellerMemoryPromptFormatter.FormatPlayerReactions(_playerReactions, maxCount);
+            if (string.IsNullOrEmpty(formatted))
             {
                 _consumedReactionsText = null;
                 return string.Empty;
             }
 
-            int takeCount = System.Math.Min(maxCount, _playerReactions.Count);
-            var peeked = _playerReactions.Take(takeCount).ToList();
-
-            var sb = new StringBuilder();
-            sb.AppendLine("RimMind.Storyteller.Prompt.PlayerReactions".Translate());
-            foreach (var r in peeked)
-            {
-                int day = TensionMath.TicksToDay(r.tick);
-                sb.AppendLine("RimMind.Storyteller.Prompt.ReactionRecordLine".Translate(
-                    day.ToString(), r.incidentLabel, r.reactionLabel));
-            }
-            _consumedReactionsText = sb.ToString().TrimEnd();
-            return _consumedReactionsText;
+            _consumedReactionsText = formatted;
+            return formatted;
         }
 
         public string ConsumeReactions(int maxCount)
@@ -331,18 +297,7 @@ namespace RimMind.Storyteller.Memory
         }
 
         public string GetActiveChainsSummary()
-        {
-            if (_activeChains.Count == 0) return string.Empty;
-            var sb = new StringBuilder();
-            foreach (var chain in _activeChains)
-            {
-                var triggeredNames = string.Join(", ", chain.steps.Select(s => s.incidentDefName));
-                sb.AppendLine("RimMind.Storyteller.Prompt.ChainProgress".Translate(
-                    chain.chainId, $"{chain.currentStep}", $"{chain.totalSteps}", triggeredNames));
-                sb.AppendLine("RimMind.Storyteller.Prompt.ChainHint".Translate(chain.nextHint ?? ""));
-            }
-            return sb.ToString().TrimEnd();
-        }
+            => StorytellerMemoryPromptFormatter.FormatActiveChains(_activeChains);
 
         public override void ExposeData()
         {

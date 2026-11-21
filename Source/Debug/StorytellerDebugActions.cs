@@ -23,7 +23,7 @@ namespace RimMind.Storyteller.Debug
                 return;
             }
 
-            if (!RimMindAPI.IsConfigured())
+            if (!RimMindAPI.Settings.IsConfigured())
             {
                 RimMindErrors.Warn("[RimMind-Storyteller] API not configured.");
                 return;

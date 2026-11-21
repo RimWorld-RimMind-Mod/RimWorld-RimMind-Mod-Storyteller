@@ -3,6 +3,7 @@ using System.Collections.Generic;
 
 namespace RimMind.Storyteller.Extensions
 {
+    [Obsolete("Use RimMind.Presentation.Api.RimMindPawnLookup directly.")]
     public static class PawnLookupCore
     {
         public static T? FindById<T>(

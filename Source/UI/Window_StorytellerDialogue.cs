@@ -1,250 +1,126 @@
 using System;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.Linq;
 using RimMind.Application.Common.Models.Context;
 using RimMind.Application.Features.Llm;
 using RimMind.Domain.Llm;
 using RimMind.Domain.ValueObjects;
 using RimMind.Presentation.Api;
-using RimMind.Storyteller;
+using RimMind.Presentation.UI;
 using RimMind.Storyteller.Memory;
-using RimMind.Storyteller.Settings;
-using RimWorld;
 using UnityEngine;
 using Verse;
 
 namespace RimMind.Storyteller.UI
 {
-    public class Window_StorytellerDialogue : Window
+    public class Window_StorytellerDialogue : RimMindChatWindowBase
     {
-        private Map _map;
-        private List<(string role, string content)> _messages = new List<(string, string)>();
-        private string _inputText = "";
-        private bool _waitingForResponse;
-        private Vector2 _scrollPos = Vector2.zero;
-        private bool _autoScroll = true;
-        private readonly ConcurrentQueue<(string role, string content)> _responseQueue = new ConcurrentQueue<(string, string)>();
         private const int MaxHistoryRounds = 6;
-        private const float Padding = 8f;
-        private const float InputHeight = 36f;
-        private const float SendButtonWidth = 80f;
-        private const float HeaderHeight = 28f;
-        private const float StatusHeight = 22f;
-        private const float ScrollbarWidth = 16f;
-        private static readonly Color UserColor = new Color(0.7f, 0.85f, 1f);
-        private static readonly Color StorytellerColor = new Color(1f, 0.95f, 0.8f);
-        private static readonly Color ChatBgColor = new Color(0.08f, 0.08f, 0.12f, 0.5f);
-        private static readonly Color StatusColor = new Color(1f, 1f, 0.5f);
-        private static readonly Color HeaderColor = new Color(1f, 0.9f, 0.7f);
+        private static readonly Color StorytellerHeaderColor = new Color(1f, 0.9f, 0.7f);
+
+        private readonly Map _map;
 
         public override Vector2 InitialSize => new Vector2(520f, 560f);
+        protected override Color HeaderColor => StorytellerHeaderColor;
 
         public Window_StorytellerDialogue(Map map) : base()
         {
             _map = map;
-            doCloseButton = false;
-            doCloseX = true;
             closeOnClickedOutside = true;
-            forcePause = false;
-            absorbInputAroundWindow = false;
-            draggable = true;
 
             var memory = StorytellerMemory.Instance;
             if (memory != null)
             {
-                int loadCount = System.Math.Min(MaxHistoryRounds, memory.DialogueRecords.Count);
+                int loadCount = Math.Min(MaxHistoryRounds, memory.DialogueRecords.Count);
                 var recentRecords = memory.DialogueRecords
-                    .Skip(System.Math.Max(0, memory.DialogueRecords.Count - loadCount)).ToList();
+                    .Skip(Math.Max(0, memory.DialogueRecords.Count - loadCount));
                 foreach (var r in recentRecords)
-                    _messages.Add((r.role, r.content));
-            }
-        }
-
-        public override void DoWindowContents(Rect inRect)
-        {
-            while (_responseQueue.TryDequeue(out var resp))
-            {
-                _waitingForResponse = false;
-                if (string.IsNullOrEmpty(resp.content)) continue;
-                _messages.Add(resp);
-                _autoScroll = true;
-                if (resp.role != "system")
                 {
-                    RecordDialogueToMemory(resp.role, resp.content);
+                    AppendMessage(r.role, r.content, notifyHook: false);
                 }
             }
+        }
 
-            Text.Font = GameFont.Small;
+        protected override string GetTitle()
+            => RimMindAPI.Text.TrOr("RimMind.Storyteller.Dialogue.Title", "Communicate with Storyteller");
 
-            float statusH = _waitingForResponse ? StatusHeight + Padding : 0f;
-            float chatHeight = inRect.height - HeaderHeight - statusH - InputHeight - Padding * 3;
-            float inputY = inRect.yMax - InputHeight;
+        protected override string GetWaitingText()
+            => RimMindAPI.Text.TrOr("RimMind.Storyteller.Dialogue.Thinking", "● Thinking...");
 
-            Rect headerRect = new Rect(inRect.x, inRect.y, inRect.width, HeaderHeight);
-            Rect chatRect = new Rect(inRect.x, inRect.y + HeaderHeight + Padding, inRect.width, chatHeight);
+        protected override string GetSendButtonLabel()
+            => RimMindAPI.Text.TrOr("RimMind.Storyteller.Dialogue.Send", "Send");
 
-            GUI.color = HeaderColor;
-            Text.Anchor = TextAnchor.MiddleCenter;
-            Widgets.Label(headerRect, "RimMind.Storyteller.Dialogue.Title".Translate());
-            Text.Anchor = TextAnchor.UpperLeft;
-            GUI.color = Color.white;
+        protected override string GetPrefixForRole(string role)
+        {
+            if (string.Equals(role, "user", StringComparison.OrdinalIgnoreCase))
+                return RimMindAPI.Text.TrOr("RimMind.Storyteller.Dialogue.PlayerPrefix", "You: ");
+            if (string.Equals(role, "system", StringComparison.OrdinalIgnoreCase))
+                return string.Empty;
+            return RimMindAPI.Text.TrOr("RimMind.Storyteller.Dialogue.StorytellerPrefix", "Storyteller: ");
+        }
 
-            Widgets.DrawBoxSolid(chatRect, ChatBgColor);
-            DrawChatHistory(chatRect);
-
-            if (_waitingForResponse)
+        protected override void OnMessageAppended(ChatWindowMessage message)
+        {
+            if (!string.Equals(message.Role, "system", StringComparison.OrdinalIgnoreCase))
             {
-                Rect statusRect = new Rect(inRect.x, inputY - StatusHeight - Padding, inRect.width, StatusHeight);
-                GUI.color = StatusColor;
-                Text.Anchor = TextAnchor.MiddleCenter;
-                Widgets.Label(statusRect, "RimMind.Storyteller.Dialogue.Thinking".Translate());
-                Text.Anchor = TextAnchor.UpperLeft;
-                GUI.color = Color.white;
-            }
-
-            Rect inputRect = new Rect(inRect.x, inputY, inRect.width - SendButtonWidth - Padding, InputHeight);
-            Rect sendRect = new Rect(inRect.xMax - SendButtonWidth, inputY, SendButtonWidth, InputHeight);
-
-            _inputText = Widgets.TextField(inputRect, _inputText);
-
-            if (!_waitingForResponse)
-            {
-                if (Widgets.ButtonText(sendRect, "RimMind.Storyteller.Dialogue.Send".Translate()))
-                    SendMessage();
-            }
-            else
-            {
-                Widgets.ButtonText(sendRect, "RimMind.Storyteller.Dialogue.Send".Translate());
-            }
-
-            if (!_waitingForResponse && Event.current.type == EventType.KeyDown
-                && Event.current.keyCode == KeyCode.Return && !_inputText.NullOrEmpty())
-            {
-                SendMessage();
-                Event.current.Use();
+                RecordDialogueToMemory(message.Role, message.Content);
             }
         }
 
-        private void DrawChatHistory(Rect rect)
+        protected override void OnSubmitUserMessage(string trimmedInput)
         {
-            float contentWidth = rect.width - ScrollbarWidth;
-            float contentHeight = CalcMessagesHeight(contentWidth - Padding * 2);
-            Rect viewRect = new Rect(0f, 0f, contentWidth, contentHeight);
+            if (IsClosed || IsWaiting) return;
+            if (!RimMindAPI.Settings.IsConfigured()) return;
 
-            float prevScrollY = _scrollPos.y;
-            Widgets.BeginScrollView(rect, ref _scrollPos, viewRect);
-
-            float y = 0f;
-            for (int i = 0; i < _messages.Count; i++)
-            {
-                var msg = _messages[i];
-                string prefix = msg.role == "user"
-                    ? "RimMind.Storyteller.Dialogue.PlayerPrefix".Translate()
-                    : msg.role == "system"
-                        ? string.Empty
-                        : "RimMind.Storyteller.Dialogue.StorytellerPrefix".Translate();
-                string line = prefix + msg.content;
-                float lineH = Text.CalcHeight(line, contentWidth - Padding * 2) + Padding;
-
-                if (i % 2 == 0)
-                {
-                    Widgets.DrawBoxSolid(new Rect(0f, y, contentWidth, lineH),
-                        new Color(1f, 1f, 1f, 0.03f));
-                }
-
-                GUI.color = msg.role == "user"
-                    ? UserColor
-                    : msg.role == "system"
-                        ? new Color(1f, 0.55f, 0.55f)
-                        : StorytellerColor;
-                Widgets.Label(new Rect(Padding, y, contentWidth - Padding * 2, lineH), line);
-                GUI.color = Color.white;
-
-                y += lineH;
-            }
-
-            Widgets.EndScrollView();
-
-            float maxScroll = Mathf.Max(0f, contentHeight - rect.height);
-            if (_autoScroll && maxScroll > 0f)
-                _scrollPos.y = maxScroll;
-
-            if (Mathf.Abs(prevScrollY - _scrollPos.y) > 1f && _scrollPos.y < maxScroll - 1f)
-                _autoScroll = false;
-
-            if (_scrollPos.y >= maxScroll - 2f)
-                _autoScroll = true;
-        }
-
-        private void SendMessage()
-        {
-            if (_inputText.NullOrEmpty() || _waitingForResponse) return;
-            if (!RimMindAPI.IsConfigured()) return;
-
-            string userMsg = _inputText.Trim();
-            _inputText = "";
-            _messages.Add(("user", userMsg));
-            _autoScroll = true;
-
-            RecordDialogueToMemory("user", userMsg);
-
-            if (_messages.Count > MaxHistoryRounds * 2)
-                _messages = _messages.TakeLast(MaxHistoryRounds * 2).ToList();
-
-            _waitingForResponse = true;
+            AppendMessage("user", trimmedInput);
+            SetWaiting(true);
 
             var envelope = LlmRequestEnvelopeBuilder
                 .ForNpc(
                     "NPC-storyteller",
                     gameStateInfo: new GameStateInfo()
-                        .AddSection("dialogue_input", userMsg)
+                        .AddSection("dialogue_input", trimmedInput)
                         .AddSection("IsStorytellerChat", "true"))
                 .ForScenarioId(ScenarioIds.Storyteller)
                 .WithModId(StorytellerRequestIds.RequestModId)
                 .WithHint("IsStorytellerChat", "true")
+                .WithRequireAliveColonist(false)
                 .WithMaxTokens(400)
                 .WithTemperature(0.9f)
+                .WithCancellation(LifetimeToken)
                 .Build();
 
             RimMindAPI.Request.Send(envelope, result =>
             {
+                if (IsClosed) return;
+
                 if (result.IsErr)
                 {
-                    string errText = "RimMind.Storyteller.Dialogue.ErrorResponse".CanTranslate()
-                        ? "RimMind.Storyteller.Dialogue.ErrorResponse".Translate(result.Error.Message).ToString()
-                        : $"[Error] {result.Error.Message}";
-                    _responseQueue.Enqueue(("system", errText));
-                    return;
-                }
-                string assistantMsg = result.Value.Content?.Trim() ?? "";
-                if (assistantMsg.NullOrEmpty())
-                {
-                    string emptyText = "RimMind.Storyteller.Dialogue.EmptyResponse".CanTranslate()
-                        ? "RimMind.Storyteller.Dialogue.EmptyResponse".Translate().ToString()
-                        : "[Error] Empty response from storyteller.";
-                    _responseQueue.Enqueue(("system", emptyText));
-                    return;
-                }
-                _responseQueue.Enqueue(("assistant", assistantMsg));
-            });
-        }
+                    if (result.Error.Code == RimMindErrorCode.Cancelled)
+                    {
+                        SetWaiting(false);
+                        return;
+                    }
 
-        private float CalcMessagesHeight(float width)
-        {
-            float h = 0f;
-            for (int i = 0; i < _messages.Count; i++)
-            {
-                var msg = _messages[i];
-                string prefix = msg.role == "user"
-                    ? "RimMind.Storyteller.Dialogue.PlayerPrefix".Translate()
-                    : msg.role == "system"
-                        ? string.Empty
-                        : "RimMind.Storyteller.Dialogue.StorytellerPrefix".Translate();
-                string line = prefix + msg.content;
-                h += Text.CalcHeight(line, width) + Padding;
-            }
-            return h + Padding;
+                    string errText = RimMindAPI.Text.TrOr(
+                        "RimMind.Storyteller.Dialogue.ErrorResponse",
+                        "[Error] {0}",
+                        result.Error.Message);
+                    PostReply("system", errText);
+                    return;
+                }
+
+                string assistantMsg = result.Value.Content?.Trim() ?? string.Empty;
+                if (string.IsNullOrEmpty(assistantMsg))
+                {
+                    string emptyText = RimMindAPI.Text.TrOr(
+                        "RimMind.Storyteller.Dialogue.EmptyResponse",
+                        "[Error] Empty response from storyteller.");
+                    PostReply("system", emptyText);
+                    return;
+                }
+
+                PostReply("assistant", assistantMsg);
+            });
         }
 
         private static void RecordDialogueToMemory(string role, string content)
@@ -252,7 +128,7 @@ namespace RimMind.Storyteller.UI
             var memory = StorytellerMemory.Instance;
             if (memory == null) return;
 
-            int tick = Find.TickManager.TicksGame;
+            int tick = Find.TickManager?.TicksGame ?? 0;
             memory.RecordDialogue(role, content, tick);
             // storyteller_dialogue context is cached; the new turn must reach the next prompt.
             StorytellerStateChangedEvent.Publish();
@@ -262,9 +138,9 @@ namespace RimMind.Storyteller.UI
 
         private static void TryPushToMemoryMod(string role, string content, int tick)
         {
-            string prefix = role == "user"
-                ? "RimMind.Storyteller.Prompt.RolePlayer".Translate()
-                : "RimMind.Storyteller.Prompt.RoleNarrator".Translate();
+            string prefix = string.Equals(role, "user", StringComparison.OrdinalIgnoreCase)
+                ? RimMindAPI.Text.TrOr("RimMind.Storyteller.Prompt.RolePlayer", "Player")
+                : RimMindAPI.Text.TrOr("RimMind.Storyteller.Prompt.RoleNarrator", "Narrator");
 
             RimMindAPI.Memory.AddNarratorMemory($"{prefix}: {content}", tick, 0.3f);
         }

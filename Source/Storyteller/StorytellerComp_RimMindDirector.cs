@@ -64,13 +64,13 @@ namespace RimMind.Storyteller
             if (RequestCoordinator.LastFailTick > 0 && currentTick - RequestCoordinator.LastFailTick < 2500)
                 yield break;
 
-            if (!RimMindAPI.IsConfigured())
+            if (!RimMindAPI.Settings.IsConfigured())
                 yield break;
 
             if (!(RimMindStorytellerMod.Settings?.enableIntervalTrigger ?? false))
                 yield break;
 
-            if (RimMindAPI.ShouldSkipStorytellerIncident())
+            if (RimMindAPI.Ext.ShouldSkipStorytellerIncident())
                 yield break;
 
             float mtb = RimMindStorytellerMod.Settings?.mtbDays ?? Props.mtbDays;

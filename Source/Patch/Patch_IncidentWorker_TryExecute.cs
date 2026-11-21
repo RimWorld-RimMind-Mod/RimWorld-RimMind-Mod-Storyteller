@@ -27,9 +27,9 @@ namespace RimMind.Storyteller.Patch
             if (!isThreat || parms?.quest != null)
                 return;
 
-            RimMindAPI.NotifyIncidentExecuted();
+            RimMindAPI.Ext.NotifyIncidentExecuted();
 
-            if (RimMindAPI.CanTriggerDialogue)
+            if (RimMindAPI.Ext.CanTriggerDialogue)
             {
                 var map = parms?.target as Map;
                 if (map != null)
@@ -47,10 +47,11 @@ namespace RimMind.Storyteller.Patch
                         {
                             Rand.PopState();
                         }
-                        string incidentContext = "RimMind.Storyteller.Context.IncidentOccurred".CanTranslate()
-                            ? "RimMind.Storyteller.Context.IncidentOccurred".Translate(__instance.def.label).ToString()
-                            : $"Incident occurred: {__instance.def.label}";
-                        RimMindAPI.TriggerDialogue(pawn, incidentContext);
+                        string incidentContext = RimMindAPI.Text.TrOr(
+                            "RimMind.Storyteller.Context.IncidentOccurred",
+                            "Incident occurred: {0}",
+                            __instance.def.label);
+                        RimMindAPI.Ext.TriggerDialogue(pawn, incidentContext);
                     }
                 }
             }

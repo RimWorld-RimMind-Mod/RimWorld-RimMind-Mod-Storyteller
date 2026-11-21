@@ -33,7 +33,7 @@ namespace RimMind.Storyteller.UI
             else
             {
                 string stateKey = $"RimMind.Agent.State.{agent.State}";
-                stateDisplay = stateKey.CanTranslate() ? (string)stateKey.Translate() : agent.State.ToString();
+                stateDisplay = RimMindAPI.Text.TrOr(stateKey, agent.State.ToString());
             }
             Widgets.Label(new Rect(inRect.x, y, inRect.width, 24f),
                 "RimMind.Storyteller.UI.Agent.State".Translate(stateDisplay));
