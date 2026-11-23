@@ -103,7 +103,12 @@ namespace RimMind.Storyteller.Debug
         private static void TestFallbackMode()
         {
             var settings = RimMindStorytellerMod.Settings;
-            var modes = new[] { FallbackMode.Cassandra, FallbackMode.Randy, FallbackMode.Phoebe, FallbackMode.None };
+            if (settings == null)
+            {
+                RimMindErrors.Warn("[RimMind-Storyteller] Settings not initialized.");
+                return;
+            }
+            var modes = (FallbackMode[])System.Enum.GetValues(typeof(FallbackMode));
             int idx = System.Array.IndexOf(modes, settings.fallbackMode);
             settings.fallbackMode = modes[(idx + 1) % modes.Length];
             Log.Message($"[RimMind-Storyteller] Fallback mode switched to: {settings.fallbackMode}");

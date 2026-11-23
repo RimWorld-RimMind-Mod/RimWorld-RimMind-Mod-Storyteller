@@ -7,9 +7,9 @@ namespace RimMind.Storyteller
     {
         private readonly RimMindStorytellerSettings _settings;
         public StorytellerModCooldown(RimMindStorytellerSettings settings) { _settings = settings; }
-        // Must equal the envelope ModId: Core resolves and stores queue cooldowns by that key.
+        // Must equal the incident-selection envelope ModId: Core stores queue cooldowns by that key.
         public string Id => StorytellerRequestIds.RequestModId;
-        public string OwnerModId => StorytellerRequestIds.RequestModId;
+        public string OwnerModId => StorytellerRequestIds.OwnerModId;
         public int CooldownTicks => (int)(_settings.mtbDays * 60000f);
     }
 }

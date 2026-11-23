@@ -1,5 +1,4 @@
 using System;
-using System.Linq;
 using RimMind.Domain.Llm;
 using RimMind.Domain.ValueObjects;
 using RimMind.Presentation.Api;
@@ -102,7 +101,7 @@ namespace RimMind.Storyteller
                             "[RimMind-Storyteller] ForceRequest: sending structured AI request");
                     }
 
-                    string npcId = RimMindAPI.GetNpcForMap(map) ?? "NPC-storyteller";
+                    string npcId = RimMindAPI.GetNpcForMap(map) ?? StorytellerRequestIds.DefaultNpcId;
                     SendRequest(npcId, target, token);
                 },
                 dispatchTick,
@@ -123,9 +122,11 @@ namespace RimMind.Storyteller
             IIncidentTarget target,
             long requestToken)
         {
+            string schema = RimMindAPI.Context.FindSchema(StorytellerRequestIds.IncidentOutputSchemaKey)
+                ?? StorytellerRequestIds.IncidentOutputSchemaJson;
             var envelope = StorytellerIncidentRequestFactory.Create(
                 RimMindAPI.Context.ScenarioStoryteller,
-                RimMindAPI.Context.SchemaIncidentOutput,
+                schema,
                 npcId);
 
             RimMindAPI.Request.Send(
@@ -141,8 +142,14 @@ namespace RimMind.Storyteller
             if (!_requestState.IsCurrent(requestToken))
                 return;
 
-            int now = Find.TickManager.TicksGame;
-            if (result.IsErr && result.Error.Code == RimMindErrorCode.Cancelled) { _requestState.Fail(requestToken, now); return; } if (result.IsErr)
+            if (result.IsErr && result.Error.Code == RimMindErrorCode.Cancelled)
+            {
+                _requestState.CancelCurrent(requestToken);
+                return;
+            }
+
+            int now = Find.TickManager?.TicksGame ?? 0;
+            if (result.IsErr)
             {
                 _requestState.Fail(requestToken, now);
                 RimMindErrors.Warn(

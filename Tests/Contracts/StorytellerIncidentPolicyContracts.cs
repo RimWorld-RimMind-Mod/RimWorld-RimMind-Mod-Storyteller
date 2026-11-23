@@ -1,10 +1,8 @@
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Xml.Linq;
-using RimMind.Storyteller.Extensions;
-using RimMind.Storyteller.Memory;
 using RimMind.Testing;
 using RimWorld;
 using Verse;
@@ -21,9 +19,10 @@ namespace RimMind.Storyteller.Tests.Contracts
                 ("valid incident responses retain parameters and chain metadata", ValidResponsesRetainMetadata),
                 ("truncated and trailing comma responses are repaired", RecoverableResponsesAreRepaired),
                 ("empty malformed and missing def names become no incident", InvalidResponsesBecomeNoIncident),
-                ("pawn lookup rejects invalid ids before world then map lookup", PawnLookupOrderRemainsStable),
                 ("only threat categories notify the player", NotificationPolicyRemainsNarrow),
-                ("director xml includes vanilla trade visitors and random quest comps", DirectorDefIncludesVanillaEcosystemComps));
+                ("tension deltas and fallback profiles stay centralized and bounded", TensionAndFallbackProfilesRemainConsistent),
+                ("director xml includes vanilla ecosystem comps and restricts fallback to Map_PlayerHome", DirectorDefIncludesVanillaEcosystemAndScopedFallback),
+                ("source code contains zero raw .Translate() calls", SourceContainsZeroRawTranslateCalls));
         }
 
         private static void ValidResponsesRetainMetadata()
@@ -142,7 +141,7 @@ namespace RimMind.Storyteller.Tests.Contracts
         }
 
         [Fact]
-        public void Nonhostile_faction_and_unknown_strategy_hints_do_not_override_defaults()
+        public void Nonhostile_defeated_faction_and_unknown_strategy_hints_do_not_override_defaults()
         {
             var raidDef = new IncidentDef { defName = "RaidEnemy" };
             raidDef.category.defName = "ThreatBig";
@@ -155,6 +154,8 @@ namespace RimMind.Storyteller.Tests.Contracts
             ally.def.defName = "OutlanderCivil";
             var defeatedAlly = new Faction { IsHostile = false, defeated = true };
             defeatedAlly.def.defName = "DefeatedCivil";
+            var defeatedPirate = new Faction { IsHostile = true, defeated = true };
+            defeatedPirate.def.defName = "DefeatedPirate";
             var pirate = new Faction { IsHostile = true };
             pirate.def.defName = "Pirate";
 
@@ -163,6 +164,7 @@ namespace RimMind.Storyteller.Tests.Contracts
             DefDatabase<IncidentDef>.Definitions[friendlyRaidDef.defName] = friendlyRaidDef;
             Find.FactionManager.AllFactions.Add(ally);
             Find.FactionManager.AllFactions.Add(defeatedAlly);
+            Find.FactionManager.AllFactions.Add(defeatedPirate);
             Find.FactionManager.AllFactions.Add(pirate);
             try
             {
@@ -178,6 +180,13 @@ namespace RimMind.Storyteller.Tests.Contracts
                 Assert.NotNull(raidIncident);
                 Assert.Null(raidIncident!.parms.faction);
                 Assert.Null(raidIncident.parms.raidStrategy);
+
+                // Defeated hostile faction must also be rejected
+                var (defeatedHostileRaid, _) = RimMindIncidentSelector.ParseResponse(
+                    "{\"defName\":\"RaidEnemy\",\"params\":{\"faction_hint\":\"DefeatedPirate\"}}",
+                    new Map(), new StorytellerComp());
+                Assert.NotNull(defeatedHostileRaid);
+                Assert.Null(defeatedHostileRaid!.parms.faction);
 
                 var (caravanIncident, _) = RimMindIncidentSelector.ParseResponse(
                     "{\"defName\":\"TraderCaravanArrival\",\"params\":{\"faction_hint\":\"OutlanderCivil\"}}",
@@ -210,74 +219,6 @@ namespace RimMind.Storyteller.Tests.Contracts
             }
         }
 
-        private static void PawnLookupOrderRemainsStable()
-        {
-#pragma warning disable CS0618
-            int enumerations = 0;
-            IEnumerable<TestPawn> Track(params TestPawn[] pawns)
-            {
-                enumerations++;
-                foreach (TestPawn pawn in pawns)
-                    yield return pawn;
-            }
-
-            Assert.Null(PawnLookupCore.FindById(
-                0,
-                () => Track(new TestPawn(1, "world")),
-                () => Track(new TestPawn(1, "map")),
-                pawn => pawn.Id));
-            Assert.Equal(0, enumerations);
-
-            var world = new[] { new TestPawn(7, "world") };
-            var map = new[] { new TestPawn(7, "map"), new TestPawn(8, "fallback") };
-            int mapFactoryCalls = 0;
-            Assert.Equal(
-                "world",
-                PawnLookupCore.FindById(
-                    7,
-                    () => world,
-                    () =>
-                    {
-                        mapFactoryCalls++;
-                        return map;
-                    },
-                    pawn => pawn.Id)!.Source);
-            Assert.Equal(0, mapFactoryCalls);
-            Assert.Equal(
-                "fallback",
-                PawnLookupCore.FindById(
-                    8,
-                    () => world,
-                    () =>
-                    {
-                        mapFactoryCalls++;
-                        return map;
-                    },
-                    pawn => pawn.Id)!.Source);
-            Assert.Equal(1, mapFactoryCalls);
-
-            var activeMap = new Map();
-            var mapPawn = new Pawn { thingIDNumber = 42 };
-            var worldOnlyPawn = new Pawn { thingIDNumber = 99 };
-            activeMap.mapPawns.FreeColonists.Add(mapPawn);
-            Find.CurrentMap = activeMap;
-            Find.WorldPawns.AllPawnsAlive.Add(worldOnlyPawn);
-            try
-            {
-                Assert.Null(PawnLookup.FindPawnById(0));
-                Assert.Same(mapPawn, PawnLookup.FindPawnById(42));
-                Assert.Same(mapPawn, PawnLookup.FindById("Pawn_42"));
-                Assert.Null(PawnLookup.FindPawnById(99));
-                Assert.Null(PawnLookup.FindById("Pawn_99"));
-            }
-            finally
-            {
-                Find.CurrentMap = null;
-                Find.WorldPawns.AllPawnsAlive.Clear();
-            }
-#pragma warning restore CS0618
-        }
-
         private static void NotificationPolicyRemainsNarrow()
         {
             Assert.True(IncidentSelectionPolicy.ShouldNotify(
@@ -290,22 +231,34 @@ namespace RimMind.Storyteller.Tests.Contracts
                 false, StorytellerIncidentKind.ThreatBig));
         }
 
-        private static void DirectorDefIncludesVanillaEcosystemComps()
+        private static void TensionAndFallbackProfilesRemainConsistent()
         {
-            var dir = new DirectoryInfo(AppContext.BaseDirectory);
-            while (dir != null && !File.Exists(Path.Combine(dir.FullName, "Defs", "StorytellerDefs", "RimMindDirector.xml")))
-            {
-                string candidate = Path.Combine(dir.FullName, "RimMind-Storyteller", "Defs", "StorytellerDefs", "RimMindDirector.xml");
-                if (File.Exists(candidate))
-                {
-                    dir = new DirectoryInfo(Path.Combine(dir.FullName, "RimMind-Storyteller"));
-                    break;
-                }
-                dir = dir.Parent;
-            }
+            Assert.Equal(0.25f, IncidentSelectionPolicy.GetTensionDeltaForCategory("ThreatBig"), 3);
+            Assert.Equal(0.12f, IncidentSelectionPolicy.GetTensionDeltaForCategory("ThreatSmall"), 3);
+            Assert.Equal(-0.05f, IncidentSelectionPolicy.GetTensionDeltaForCategory("Misc"), 3);
+            Assert.Equal(-0.08f, IncidentSelectionPolicy.GetTensionDeltaForCategory("FactionArrival"), 3);
+            Assert.Equal(0f, IncidentSelectionPolicy.GetTensionDeltaForCategory(null), 3);
 
-            Assert.NotNull(dir);
-            string xmlPath = Path.Combine(dir!.FullName, "Defs", "StorytellerDefs", "RimMindDirector.xml");
+            var cassandra = IncidentSelectionPolicy.ResolveFallbackProfile("Cassandra");
+            Assert.Equal(4.6f, cassandra.MtbDays, 2);
+            Assert.Equal(FallbackCategorySlot.ThreatBig, cassandra.ChooseCategorySlot(0.5f));
+
+            var randy = IncidentSelectionPolicy.ResolveFallbackProfile("Randy");
+            Assert.Equal(1.35f, randy.MtbDays, 2);
+            Assert.Equal(FallbackCategorySlot.ThreatBig, randy.ChooseCategorySlot(0.1f));
+            Assert.Equal(FallbackCategorySlot.ThreatSmall, randy.ChooseCategorySlot(0.45f));
+            Assert.Equal(FallbackCategorySlot.Misc, randy.ChooseCategorySlot(0.8f));
+
+            var phoebe = IncidentSelectionPolicy.ResolveFallbackProfile("Phoebe");
+            Assert.Equal(8.0f, phoebe.MtbDays, 2);
+            Assert.Equal(FallbackCategorySlot.ThreatSmall, phoebe.ChooseCategorySlot(0.2f));
+            Assert.Equal(FallbackCategorySlot.FactionArrival, phoebe.ChooseCategorySlot(0.9f));
+        }
+
+        private static void DirectorDefIncludesVanillaEcosystemAndScopedFallback()
+        {
+            string modRoot = FindStorytellerModRoot();
+            string xmlPath = Path.Combine(modRoot, "Defs", "StorytellerDefs", "RimMindDirector.xml");
             XDocument doc = XDocument.Load(xmlPath);
             var comps = doc.Root!
                 .Elements("StorytellerDef")
@@ -330,18 +283,44 @@ namespace RimMind.Storyteller.Tests.Contracts
             Assert.Contains("OrbitalTraderArrival", incidents);
             Assert.Contains("StorytellerCompProperties_RandomQuest", classes);
             Assert.Contains("StorytellerCompProperties_ShipChunkDrop", classes);
+
+            // Fallback comp must restrict target tags to Map_PlayerHome
+            var fallbackComp = comps.Single(c => c.Attribute("Class")?.Value == "RimMind.Storyteller.StorytellerCompProperties_RimMindFallback");
+            var allowedTags = fallbackComp.Element("allowedTargetTags")?.Elements("li").Select(e => e.Value).ToList();
+            Assert.NotNull(allowedTags);
+            Assert.Contains("Map_PlayerHome", allowedTags!);
         }
 
-        private sealed class TestPawn
+        private static void SourceContainsZeroRawTranslateCalls()
         {
-            public TestPawn(int id, string source)
-            {
-                Id = id;
-                Source = source;
-            }
+            string sourceRoot = Path.Combine(FindStorytellerModRoot(), "Source");
+            var csFiles = Directory.EnumerateFiles(sourceRoot, "*.cs", SearchOption.AllDirectories)
+                .Where(p => !p.Contains(Path.DirectorySeparatorChar + "obj" + Path.DirectorySeparatorChar))
+                .ToList();
+            Assert.NotEmpty(csFiles);
 
-            public int Id { get; }
-            public string Source { get; }
+            foreach (string file in csFiles)
+            {
+                string code = Regex.Replace(File.ReadAllText(file), @"//[^\r\n]*|/\*.*?\*/", " ", RegexOptions.Singleline);
+                Assert.DoesNotContain(".Translate(", code, StringComparison.Ordinal);
+            }
+        }
+
+        private static string FindStorytellerModRoot()
+        {
+            var dir = new DirectoryInfo(AppContext.BaseDirectory);
+            while (dir != null)
+            {
+                if (File.Exists(Path.Combine(dir.FullName, "Defs", "StorytellerDefs", "RimMindDirector.xml")))
+                    return dir.FullName;
+
+                string candidate = Path.Combine(dir.FullName, "RimMind-Storyteller", "Defs", "StorytellerDefs", "RimMindDirector.xml");
+                if (File.Exists(candidate))
+                    return Path.Combine(dir.FullName, "RimMind-Storyteller");
+
+                dir = dir.Parent;
+            }
+            throw new InvalidOperationException("RimMind-Storyteller root directory not found.");
         }
     }
 }

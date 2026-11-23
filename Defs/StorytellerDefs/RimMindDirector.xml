@@ -11,7 +11,11 @@
       <!-- AI 事件选择器（主要逻辑） -->
       <li Class="RimMind.Storyteller.StorytellerCompProperties_RimMindDirector"/>
       <!-- Fallback：AI 不可用时接管 -->
-      <li Class="RimMind.Storyteller.StorytellerCompProperties_RimMindFallback"/>
+      <li Class="RimMind.Storyteller.StorytellerCompProperties_RimMindFallback">
+        <allowedTargetTags>
+          <li>Map_PlayerHome</li>
+        </allowedTargetTags>
+      </li>
       <!-- 疾病 -->
       <li Class="StorytellerCompProperties_Disease">
         <category>DiseaseHuman</category>

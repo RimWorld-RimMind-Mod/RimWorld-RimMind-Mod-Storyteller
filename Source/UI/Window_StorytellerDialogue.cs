@@ -1,6 +1,5 @@
 using System;
 using System.Linq;
-using RimMind.Application.Common.Models.Context;
 using RimMind.Application.Features.Llm;
 using RimMind.Domain.Llm;
 using RimMind.Domain.ValueObjects;
@@ -17,14 +16,12 @@ namespace RimMind.Storyteller.UI
         private const int MaxHistoryRounds = 6;
         private static readonly Color StorytellerHeaderColor = new Color(1f, 0.9f, 0.7f);
 
-        private readonly Map _map;
-
         public override Vector2 InitialSize => new Vector2(520f, 560f);
         protected override Color HeaderColor => StorytellerHeaderColor;
 
-        public Window_StorytellerDialogue(Map map) : base()
+        public Window_StorytellerDialogue(Map? map = null) : base()
         {
-            _map = map;
+            _ = map;
             closeOnClickedOutside = true;
 
             var memory = StorytellerMemory.Instance;
@@ -76,13 +73,11 @@ namespace RimMind.Storyteller.UI
 
             var envelope = LlmRequestEnvelopeBuilder
                 .ForNpc(
-                    "NPC-storyteller",
+                    StorytellerRequestIds.DefaultNpcId,
                     gameStateInfo: new GameStateInfo()
-                        .AddSection("dialogue_input", trimmedInput)
-                        .AddSection("IsStorytellerChat", "true"))
-                .ForScenarioId(ScenarioIds.Storyteller)
-                .WithModId(StorytellerRequestIds.RequestModId)
-                .WithHint("IsStorytellerChat", "true")
+                        .AddSection("dialogue_input", trimmedInput))
+                .ForScenarioId(StorytellerRequestIds.ChatScenarioId)
+                .WithModId(StorytellerRequestIds.ChatModId)
                 .WithRequireAliveColonist(false)
                 .WithMaxTokens(400)
                 .WithTemperature(0.9f)
@@ -130,7 +125,6 @@ namespace RimMind.Storyteller.UI
 
             int tick = Find.TickManager?.TicksGame ?? 0;
             memory.RecordDialogue(role, content, tick);
-            // storyteller_dialogue context is cached; the new turn must reach the next prompt.
             StorytellerStateChangedEvent.Publish();
 
             TryPushToMemoryMod(role, content, tick);

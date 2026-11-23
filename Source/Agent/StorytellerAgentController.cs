@@ -5,8 +5,8 @@ namespace RimMind.Storyteller.Agent
 {
     public static class StorytellerAgentController
     {
-        public const string ScopeType = "storyteller";
-        public const string ScopeId = "NPC-storyteller";
+        public const string ScopeType = StorytellerRequestIds.AgentScopeType;
+        public const string ScopeId = StorytellerRequestIds.DefaultNpcId;
 
         public static IScopedAgent? Find()
             => RimMindAPI.Agents.FindScoped(ScopeType, ScopeId);

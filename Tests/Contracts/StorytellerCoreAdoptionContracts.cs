@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Newtonsoft.Json.Linq;
 using RimMind.Application.Common.Constants;
 using RimMind.Application.Common.Interfaces.Context;
 using RimMind.Application.Common.Models.Context;
@@ -20,9 +21,10 @@ namespace RimMind.Storyteller.Tests.Contracts
     public sealed class StorytellerCoreAdoptionContracts
     {
         [Fact]
-        public async Task Storyteller_OwnsItsOwnScenarioAndL0Prompts_ForBothIncidentAndAltarChatModes()
+        public async Task Storyteller_OwnsItsOwnScenariosSchemaAndL0Prompts_ForBothIncidentAndAltarChatModes()
         {
             RimMindAPI.Context.ContextKeys.Definitions.Clear();
+            RimMindAPI.Context.RegisteredSchemas.Clear();
             StorytellerMemory.Instance = new StorytellerMemory
             {
                 CustomSystemPrompt = "Be mysterious and poetic."
@@ -31,46 +33,74 @@ namespace RimMind.Storyteller.Tests.Contracts
             {
                 StorytellerContextProviderRegistrar.RegisterAll();
 
-                var scenario = ScenarioRegistry.Get(ScenarioIds.Storyteller);
-                Assert.NotNull(scenario);
-                Assert.Equal(RimMindOwnerConsts.StorytellerModId, scenario!.OwnerModId);
-                Assert.Equal(L4Mode.NarrativeMemory, scenario.L4Mode);
-                Assert.True(scenario.RelevanceWeights != null && scenario.RelevanceWeights.ContainsKey("storyteller_system"));
-                Assert.True(scenario.RelevanceWeights!.ContainsKey("storyteller_rules"));
+                // Storyteller registers its own IncidentOutput JSON Schema
+                string? incidentSchema = RimMindAPI.Context.FindSchema(StorytellerRequestIds.IncidentOutputSchemaKey);
+                Assert.NotNull(incidentSchema);
+                var parsedSchema = JObject.Parse(incidentSchema!);
+                Assert.Equal("object", parsedSchema["type"]?.ToString());
+                Assert.NotNull(parsedSchema["properties"]?["defName"]);
+
+                var incidentScenario = ScenarioRegistry.Get(ScenarioIds.Storyteller);
+                Assert.NotNull(incidentScenario);
+                Assert.Equal(RimMindOwnerConsts.StorytellerModId, incidentScenario!.OwnerModId);
+                Assert.Equal(L4Mode.NarrativeMemory, incidentScenario.L4Mode);
+                Assert.True(incidentScenario.RelevanceWeights != null && incidentScenario.RelevanceWeights.ContainsKey("storyteller_system"));
+                Assert.True(incidentScenario.RelevanceWeights!.ContainsKey("storyteller_rules"));
+                // Pruned dead weights: no excluded key should also appear in RelevanceWeights
+                foreach (string excluded in incidentScenario.DefaultExcludeKeys)
+                {
+                    Assert.False(incidentScenario.RelevanceWeights.ContainsKey(excluded),
+                        $"Excluded key '{excluded}' must not remain in RelevanceWeights.");
+                }
+
+                // Altar chat has its own registered scenario cleanly separated from incident selection
+                var chatScenario = ScenarioRegistry.Get(StorytellerRequestIds.ChatScenarioId);
+                Assert.NotNull(chatScenario);
+                Assert.Equal(RimMindOwnerConsts.StorytellerModId, chatScenario!.OwnerModId);
+                Assert.Contains("storyteller_rules", chatScenario.DefaultExcludeKeys);
+                Assert.Contains("storyteller_task", chatScenario.DefaultExcludeKeys);
 
                 var systemProvider = RimMindAPI.Context.ContextKeys.Definitions.Single(d => d.Key == "storyteller_system");
                 var rulesProvider = RimMindAPI.Context.ContextKeys.Definitions.Single(d => d.Key == "storyteller_rules");
+                var taskProvider = RimMindAPI.Context.ContextKeys.Definitions.Single(d => d.Key == "storyteller_task");
                 Assert.Equal(ContextLayer.L0_Static, systemProvider.Layer);
                 Assert.Equal(ContextLayer.L0_Static, rulesProvider.Layer);
+                Assert.Equal(ContextLayer.L0_Static, taskProvider.Layer);
 
-                var incidentCtx = new ProviderContext(ScenarioIds.Storyteller, "t-inc") { NpcId = "NPC-storyteller" };
+                var incidentCtx = new ProviderContext(ScenarioIds.Storyteller, "t-inc") { NpcId = StorytellerRequestIds.DefaultNpcId };
                 string? incidentSys = await systemProvider.Provider(incidentCtx, CancellationToken.None);
                 string? incidentRules = await rulesProvider.Provider(incidentCtx, CancellationToken.None);
+                string? incidentTask = await taskProvider.Provider(incidentCtx, CancellationToken.None);
                 Assert.NotNull(incidentSys);
+                Assert.Contains("Be mysterious and poetic.", incidentSys!);
                 Assert.Contains("storyteller AI", incidentSys!);
                 Assert.NotNull(incidentRules);
                 Assert.Contains("Storyteller rules", incidentRules!);
+                Assert.NotNull(incidentTask);
+                // CustomSystemPrompt is composed once in storyteller_system, not duplicated in storyteller_task
+                Assert.DoesNotContain("Be mysterious and poetic.", incidentTask!);
 
                 // Non-storyteller scenarios must receive null (strict scenario guard)
                 Assert.Null(await systemProvider.Provider(incidentCtx with { Scenario = ScenarioIds.Dialogue }, CancellationToken.None));
                 Assert.Null(await rulesProvider.Provider(incidentCtx with { Scenario = ScenarioIds.AgentDecision }, CancellationToken.None));
 
-                // Altar chat mode receives chat persona + CustomSystemPrompt, and omits incident JSON rules
-                var chatCtx = new ProviderContext(ScenarioIds.Storyteller, "t-chat")
+                // Altar chat scenario receives chat persona + CustomSystemPrompt, and omits incident JSON rules/task
+                var chatCtx = new ProviderContext(StorytellerRequestIds.ChatScenarioId, "t-chat")
                 {
-                    NpcId = "NPC-storyteller",
-                    Hints = new Dictionary<string, object?> { ["IsStorytellerChat"] = "true" }
+                    NpcId = StorytellerRequestIds.DefaultNpcId
                 };
                 string? chatSys = await systemProvider.Provider(chatCtx, CancellationToken.None);
                 Assert.NotNull(chatSys);
                 Assert.Contains("Be mysterious and poetic.", chatSys!);
                 Assert.Contains("Storyteller Altar", chatSys!);
                 Assert.Null(await rulesProvider.Provider(chatCtx, CancellationToken.None));
+                Assert.Null(await taskProvider.Provider(chatCtx, CancellationToken.None));
             }
             finally
             {
                 StorytellerMemory.Instance = null;
                 RimMindAPI.Context.ContextKeys.Definitions.Clear();
+                RimMindAPI.Context.RegisteredSchemas.Clear();
             }
         }
 
@@ -96,7 +126,7 @@ namespace RimMind.Storyteller.Tests.Contracts
         }
 
         [Fact]
-        public void Window_StorytellerDialogue_CancelsInFlightRequestOnPostClose_AndPersistsReplies()
+        public void Window_StorytellerDialogue_UsesDedicatedChatScenarioAndModId_CancelsOnPostClose_AndPersistsReplies()
         {
             RimMindAPI.Configured = true;
             RimMindAPI.Sent.Clear();
@@ -119,11 +149,15 @@ namespace RimMind.Storyteller.Tests.Contracts
                 window.DoWindowContents(new Rect(0, 0, 520, 560));
 
                 var sent = Assert.Single(RimMindAPI.Sent);
-                Assert.Equal(ScenarioIds.Storyteller, sent.Envelope.ScenarioId);
-                Assert.Equal(StorytellerRequestIds.RequestModId, sent.Envelope.ModId);
+                Assert.Equal(StorytellerRequestIds.ChatScenarioId, sent.Envelope.ScenarioId);
+                Assert.Equal(StorytellerRequestIds.ChatModId, sent.Envelope.ModId);
+                Assert.NotEqual(StorytellerRequestIds.RequestModId, sent.Envelope.ModId);
                 Assert.Equal(false, sent.Envelope.RequireAliveColonist);
                 Assert.True(sent.Envelope.Ct.CanBeCanceled);
                 Assert.False(sent.Envelope.Ct.IsCancellationRequested);
+                // Control flags must never leak into GameStateInfo prompt text
+                string serializedGameState = sent.Envelope.GameStateInfo?.ToString() ?? string.Empty;
+                Assert.DoesNotContain("IsStorytellerChat", serializedGameState);
 
                 // Deliver assistant reply and drain on next frame
                 sent.Complete(Result<LlmResponse, RimMindError>.Ok(new LlmResponse { Content = "Fortune favors the bold." }));
@@ -157,7 +191,7 @@ namespace RimMind.Storyteller.Tests.Contracts
         [Fact]
         public void StorytellerIncidentRequestFactory_OptsOutOfColonistLivenessGate()
         {
-            var envelope = StorytellerIncidentRequestFactory.Create(ScenarioIds.Storyteller, "{}", "NPC-storyteller");
+            var envelope = StorytellerIncidentRequestFactory.Create(ScenarioIds.Storyteller, "{}", StorytellerRequestIds.DefaultNpcId);
             Assert.Equal(false, envelope.RequireAliveColonist);
             Assert.Equal(false, envelope.EffectiveRequireAliveColonist);
         }

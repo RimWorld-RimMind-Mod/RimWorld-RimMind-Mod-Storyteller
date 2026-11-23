@@ -25,10 +25,10 @@ AI叙事者模块，替换RimWorld Storyteller系统，LLM决定事件选择。
 
 | 项 | 值 |
 |----|-----|
-| Target | net48, C#9.0, Nullable enable |
-| Output | `../1.6/Assemblies/` |
+| Target | net48 (1.6) / net10.0 (1.7), C# 9.0, Nullable enable |
+| Output | `../$(GameVersion)/Assemblies/` |
 | Assembly | RimMindStoryteller |
-| 依赖 | RimMindCore.dll, Krafs.Rimworld.Ref, Lib.Harmony.Ref, Newtonsoft.Json |
+| 依赖 | `0_RimMindDomain.dll`, `1_RimMindApplication.dll`, `2_RimMindCore.dll` (`<Private>false</Private>`), Krafs.Rimworld.Ref, Lib.Harmony.Ref, Newtonsoft.Json |
 
 ## 源码结构
 
@@ -38,35 +38,37 @@ Source/
 ├── Agent/StorytellerAgentController.cs                         Storyteller-owned Agent 控制器
 ├── Storyteller/
 │   ├── README.md                                                事件请求与 Context Provider 阅读地图
-│   ├── StorytellerContextProviderRegistrar.cs                  5个 Context Provider 注册
+│   ├── StorytellerRequestIds.cs                                ModId/ScenarioId/NpcId/IncidentOutput Schema 常量中心
+│   ├── StorytellerContextProviderRegistrar.cs                  7个 Context Provider + 2个 Scenario + IncidentOutput Schema 注册
 │   ├── StorytellerComp_RimMindDirector.cs                      RimWorld入口 + 间隔触发门控
 │   ├── StorytellerRequestCoordinator.cs                        请求派发、回调终态与事件链记录
-│   ├── StorytellerRequestState.cs                              Token、pending请求和pending结果状态
+│   ├── StorytellerRequestState.cs                              Token、pending请求、取消状态与pending结果状态
 │   ├── StorytellerNotificationService.cs                       玩家反应通知与张力回调
-│   ├── IncidentSelectionPolicy.cs                              点数倍率范围与威胁通知策略
-│   ├── StorytellerComp_RimMindFallback.cs                      回退事件生成器
+│   ├── IncidentSelectionPolicy.cs                              点数倍率范围、张力增量表、FallbackProfile 表与威胁通知策略
+│   ├── StorytellerComp_RimMindFallback.cs                      回退事件生成器（仅 Map_PlayerHome）
 │   ├── StorytellerCompProperties_RimMindDirector.cs            Director Def属性
 │   ├── StorytellerCompProperties_RimMindFallback.cs            Fallback Def属性
 │   ├── RimMindIncidentSelector.cs                              响应解析入口(委托给 StorytellerResponseParserPure)
 │   └── StorytellerResponseParserPure.cs                        JSON解析+修复统一入口(纯逻辑，可单测)
 ├── Memory/
-│   ├── StorytellerMemory.cs                                    WorldComponent(事件/对话/反应/张力/链)
+│   ├── StorytellerMemory.cs                                    WorldComponent(事件/对话/反应/张力/链 + StorytellerStateChangedEvent)
 │   ├── IncidentHistoryRecord.cs                                事件历史记录(含存档兼容字段)
 │   ├── TensionMath.cs                                          张力衰减/Clamp01 纯逻辑(可单测)
 │   └── IncidentResponse.cs                                     IncidentResponse DTO
 ├── Extensions/
 │   ├── StorytellerContextPolicy.cs                             自定义指令与生成任务指令组合
-│   ├── StorytellerContextBuilder.cs                            难度/威胁/张力文本构建(6个helper，3个纯逻辑可单测)
-│   ├── StorytellerIncidentSkipCheck.cs                         ISkipCheck 实现
-│   ├── StorytellerModCooldown.cs                               IModCooldown 实现
-│   └── StorytellerSettingsTab.cs                               ISettingsTab Adapter
+│   ├── StorytellerContextBuilder.cs                            难度/威胁/张力文本构建(纯逻辑可单测)
+│   ├── StorytellerModCooldown.cs                               IModCooldown 实现（仅作用于事件选择 ModId）
+│   └── StorytellerSettingsTabAdapter.cs                        ISettingsTab Adapter
 ├── Settings/RimMindStorytellerSettings.cs + StorytellerSettingsTab.cs
 ├── UI/
-│   ├── Window_StorytellerDialogue.cs                           祭坛对话窗口
+│   ├── Window_StorytellerDialogue.cs                           祭坛对话窗口（独立 ChatScenarioId & ChatModId）
 │   └── Window_StorytellerAgentControl.cs                       Agent控制台窗口
 ├── Comps/CompStorytellerAltar.cs                               祭坛建筑组件
 ├── Patch/Patch_IncidentWorker_TryExecute.cs                    事件执行后置补丁
-└── Debug/StorytellerDebugActions.cs
+└── Debug/
+    ├── StorytellerDebugActions.cs
+    └── StorytellerBehaviorAutotestSuite.cs                     游戏内自动化行为测试套件
 ```
 
 ## 事件选择流程
@@ -101,28 +103,38 @@ StorytellerComp_RimMindDirector.MakeIntervalIncidents
 | Randy | 1.35 | 30%Big/30%Small/40%Misc |
 | Phoebe | 8.0 | 40%FactionArrival/60%Small |
 
-## ContextKey 注册（全部使用新 API + 场景守卫）
+## ContextKey 与 Schema 注册（全部使用新 API + 场景守卫）
 
-| Key | Layer | Priority | 内容 |
-|-----|-------|----------|------|
-| storyteller_task | L0_Static | 0.95 | TaskInstruction(12段事件选择指令) |
-| storyteller_context | L1_Baseline | 0.85 | 难度+威胁+张力+近期事件+活跃链 |
-| storyteller_reactions | L1_Baseline | 0.8 | 玩家情感反应(ConsumedReactionsText) |
-| storyteller_dialogue | L3_State | 0.5 | 近期对话摘要 |
-| storyteller_recent_incidents | L4_History | 0.7 | Memory模组近期叙述(`RimMindAPI.Memory`) |
+`StorytellerContextProviderRegistrar.RegisterAll()` 在初始化时注册 `IncidentOutput` Schema（`RimMindAPI.Context.RegisterSchema`）、两个场景（`ScenarioIds.Storyteller` 事件选择与 `StorytellerRequestIds.ChatScenarioId = "StorytellerChat"` 祭坛对话）以及 7 个 Context Provider：
 
-所有注册均以 `ctx.Scenario != RimMindAPI.Context.ScenarioStoryteller` 返回 `null`。这五个 provider 读取世界级数据，不查找 Pawn，也不要求正数 `PawnId`；地图 NPC 与 `NPC-storyteller` 后备身份的 `PawnId=0` 是有效输入。
+| Key | Layer | Priority | 适用场景 | 内容 |
+|-----|-------|----------|----------|------|
+| `storyteller_system` | L0_Static | 1.0 | `Storyteller` / `StorytellerChat` | 叙事者系统提示词（按场景区分事件选择/祭坛对话）+ `CustomSystemPrompt` |
+| `storyteller_rules` | L0_Static | 0.98 | `Storyteller` | 叙事者事件选择世界规则（祭坛对话自动排除） |
+| `storyteller_task` | L0_Static | 0.95 | `Storyteller` | TaskInstruction(12段事件选择指令，已与 `CustomSystemPrompt` 解耦避免重复注入) |
+| `storyteller_context` | L1_Baseline | 0.85 | `Storyteller` / `StorytellerChat` | 难度(`difficultyDef.LabelCap`)+威胁+张力+近期事件+活跃链 |
+| `storyteller_reactions` | L1_Baseline | 0.8 | `Storyteller` / `StorytellerChat` | 玩家情感反应(`ConsumedReactionsText`) |
+| `storyteller_dialogue` | L3_State | 0.5 | `Storyteller` / `StorytellerChat` | 近期对话摘要 |
+| `storyteller_recent_incidents` | L4_History | 0.7 | `Storyteller` / `StorytellerChat` | Memory模组近期叙述(`RimMindAPI.Memory`) |
+
+所有注册均含显式场景守卫，非目标场景返回 `null`。这些 provider 读取世界级数据，不查找 Pawn，也不要求正数 `PawnId`；地图 NPC 与 `NPC-storyteller` 后备身份的 `PawnId=0` 是有效输入。祭坛对话使用独立 `StorytellerRequestIds.ChatModId = "RimMind.StorytellerChat"` 与 `StorytellerRequestIds.ChatScenarioId`，避免命中 `StorytellerModCooldown` 的事件选择冷却。
 
 ## 上下文注入流程
 
 ```
 ContextEngine.BuildContext(Scenario=Storyteller)
-  ├── L0_Static: storyteller_task (TaskInstruction 12段指令)
+  ├── L0_Static: storyteller_system + storyteller_rules + storyteller_task (TaskInstruction 12段指令)
   ├── L1_Baseline: storyteller_context (难度+威胁+张力+事件+链)
   ├── L1_Baseline: storyteller_reactions (玩家反应)
   ├── L2_Environment: Core自动注入 (地图状态、殖民者状态等)
   ├── L3_State: storyteller_dialogue (对话摘要)
   └── L4_History: storyteller_recent_incidents (Memory叙述) + Core自动注入 (NarrativeMemory)
+
+ContextEngine.BuildContext(Scenario=StorytellerChat)
+  ├── L0_Static: storyteller_system (祭坛对话模式 + CustomSystemPrompt)
+  ├── L1_Baseline: storyteller_context + storyteller_reactions
+  ├── L3_State: storyteller_dialogue
+  └── L4_History: storyteller_recent_incidents
 ```
 
 ## 跨模组 Memory 路径
@@ -141,12 +153,13 @@ Storyteller 不访问 Memory 的具体 Store、WorldComponent 或设置单例。
 - Harmony ID: `mcocdaa.RimMindStoryteller`
 - `mtbDays` 运行时以Settings为准(覆盖Def)
 - 间隔检查顺序保持为 target → maintenance → pending result → pending request (含 15000 tick 超时自动取消) → failure backoff (`LastFailTick` 2500 tick 冷却) → API → setting → skip check → MTB
-- 过期请求Token必须忽略；成功/失败Tick只由 `StorytellerRequestState` 更新
+- 过期请求Token必须忽略；成功/失败/取消状态只由 `StorytellerRequestState` 更新（取消不触发 2500 tick 失败冷却）
 - `StorytellerResponseParserPure` 在提取 JSON 子串时必须统计字符串外的花括号平衡（截断 JSON 不得在内部嵌套 `}` 处截断），并在修复阶段先闭合未结束的字符串字面量再配平括号
-- `PawnLookup.FindPawnById` 优先通过 `RimMindPawnLookup.FindPawnByNumber` 与当前地图 `FreeColonists` 查找，最后回退到 `WorldPawns.AllPawnsAlive`
-- `StorytellerMemory` 持有事件历史、对话、反应、张力和事件链的持久状态
+- `StorytellerComp_RimMindFallback` 与 XML Def 均限定 `Map_PlayerHome` 且校验 `target is Map`，关闭 `enableIntervalTrigger` 时不阻断 Fallback
+- `StorytellerMemory` 持有事件历史、对话、反应、张力和事件链的持久状态，所有变更/清理入口必须发布 `StorytellerStateChangedEvent.Publish()`
+- 所有翻译调用统一使用 `RimMindAPI.Text.TrOr(key, englishFallback, ...)`，禁止裸 `.Translate()` 或 `TrOr(key, key)`
 - 所有ContextKey注册必须包含场景守卫
-- `RimMindIncidentSelector` 直接守卫解析失败、未知 Def 和 `CanFireNow=false`；参数倍率范围与威胁通知条件仍由 `IncidentSelectionPolicy` 负责。
+- `RimMindIncidentSelector` 直接守卫解析失败、未知 Def、`CanFireNow=false` 与 `!f.IsPlayer && !f.defeated` 敌对派系匹配；参数倍率范围、张力增量表、FallbackProfile 表与威胁通知条件由 `IncidentSelectionPolicy` 负责。
 - 禁止使用 `[Obsolete]` 的 `RegisterPawnContextProvider` / `RegisterStaticProvider`
 - 禁止直接访问 `Core.Internal` 命名空间
 

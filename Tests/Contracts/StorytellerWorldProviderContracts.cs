@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -24,7 +23,7 @@ namespace RimMind.Storyteller.Tests.Contracts
                 ["storyteller_reactions"] = "player reaction",
                 ["storyteller_recent_incidents"] = "narrator memory"
             };
-            foreach (string npcId in new[] { "NPC-map-7", "NPC-storyteller" })
+            foreach (string npcId in new[] { "NPC-map-7", StorytellerRequestIds.DefaultNpcId })
             foreach (var item in expectedContent)
                 yield return new object[] { npcId, item.Key, item.Value };
         }
@@ -62,12 +61,13 @@ namespace RimMind.Storyteller.Tests.Contracts
         }
 
         [Fact]
-        public async Task Storyteller_providers_marshal_background_reads_via_MainThreadReader_and_respect_chat_hint()
+        public async Task Storyteller_providers_marshal_background_reads_via_MainThreadReader_and_isolate_chat_scenario()
         {
             RimMindAPI.Context.ContextKeys.Definitions.Clear();
             StorytellerMemory.Instance = new StorytellerMemory
             {
-                IncidentSummary = "marshalled summary"
+                IncidentSummary = "marshalled summary",
+                Dialogue = "altar dialogue turn"
             };
             int postCount = 0;
             RimMindAPI.MainThreadSnapshot.Reader = new MainThreadReader(
@@ -83,25 +83,21 @@ namespace RimMind.Storyteller.Tests.Contracts
                 StorytellerContextProviderRegistrar.RegisterAll();
                 var ctxProvider = RimMindAPI.Context.ContextKeys.Definitions.Single(d => d.Key == "storyteller_context");
                 var taskProvider = RimMindAPI.Context.ContextKeys.Definitions.Single(d => d.Key == "storyteller_task");
+                var dialogueProvider = RimMindAPI.Context.ContextKeys.Definitions.Single(d => d.Key == "storyteller_dialogue");
 
-                var context = new ProviderContext(ScenarioIds.Storyteller, "bg-test") { NpcId = "NPC-storyteller" };
+                var context = new ProviderContext(ScenarioIds.Storyteller, "bg-test") { NpcId = StorytellerRequestIds.DefaultNpcId };
                 string? result = await ctxProvider.Provider(context, CancellationToken.None);
                 Assert.Contains("marshalled summary", result);
                 Assert.Equal(1, postCount);
 
-                var chatContext = new ProviderContext(ScenarioIds.Storyteller, "chat-test")
+                // Dedicated ChatScenarioId omits incident task while serving world/dialogue context
+                var chatContext = new ProviderContext(StorytellerRequestIds.ChatScenarioId, "chat-test")
                 {
-                    NpcId = "NPC-storyteller",
-                    Hints = new Dictionary<string, object?> { ["IsStorytellerChat"] = true }
+                    NpcId = StorytellerRequestIds.DefaultNpcId
                 };
                 Assert.Null(await taskProvider.Provider(chatContext, CancellationToken.None));
-
-                var stringHintChatContext = new ProviderContext(ScenarioIds.Storyteller, "chat-string-test")
-                {
-                    NpcId = "NPC-storyteller",
-                    Hints = new Dictionary<string, object?> { ["IsStorytellerChat"] = "true" }
-                };
-                Assert.Null(await taskProvider.Provider(stringHintChatContext, CancellationToken.None));
+                Assert.Contains("marshalled summary", await ctxProvider.Provider(chatContext, CancellationToken.None));
+                Assert.Contains("altar dialogue turn", await dialogueProvider.Provider(chatContext, CancellationToken.None));
             }
             finally
             {

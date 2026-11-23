@@ -141,14 +141,19 @@ namespace RimMind.Storyteller.Memory
                 _maxRecords = settings.maxEventRecords;
             var record = IncidentHistoryRecord.Create(def, target, tick);
             _records.Add(record);
-            if (_records.Count > _maxRecords)
+            while (_records.Count > _maxRecords)
                 _records.RemoveAt(0);
+            StorytellerStateChangedEvent.Publish();
         }
 
         public string GetRecentSummary(int count)
             => StorytellerMemoryPromptFormatter.FormatRecentIncidents(_records, count);
 
-        public void ClearRecords() => _records.Clear();
+        public void ClearRecords()
+        {
+            _records.Clear();
+            StorytellerStateChangedEvent.Publish();
+        }
 
         public void RecordDialogue(string role, string content, int tick)
         {
@@ -158,12 +163,32 @@ namespace RimMind.Storyteller.Memory
             _dialogueRecords.Add(DialogueRecord.Create(role, content, tick));
             while (_dialogueRecords.Count > _maxDialogueRecords)
                 _dialogueRecords.RemoveAt(0);
+            StorytellerStateChangedEvent.Publish();
+        }
+
+        internal bool RemoveLastDialogueIfMatches(string role, string content, int tick)
+        {
+            for (int i = _dialogueRecords.Count - 1; i >= 0; i--)
+            {
+                var r = _dialogueRecords[i];
+                if (r.role == role && r.content == content && r.tick == tick)
+                {
+                    _dialogueRecords.RemoveAt(i);
+                    StorytellerStateChangedEvent.Publish();
+                    return true;
+                }
+            }
+            return false;
         }
 
         public string GetRecentDialogueSummary(int count)
             => StorytellerMemoryPromptFormatter.FormatRecentDialogues(_dialogueRecords, count);
 
-        public void ClearDialogueRecords() => _dialogueRecords.Clear();
+        public void ClearDialogueRecords()
+        {
+            _dialogueRecords.Clear();
+            StorytellerStateChangedEvent.Publish();
+        }
 
         public void RecordPlayerReaction(string incidentDefName, string incidentLabel, string reaction, string reactionLabel, int tick)
         {
@@ -180,6 +205,7 @@ namespace RimMind.Storyteller.Memory
             });
             while (_playerReactions.Count > _maxPlayerReactions)
                 _playerReactions.RemoveAt(0);
+            StorytellerStateChangedEvent.Publish();
         }
 
         public string PeekReactions(int maxCount)
@@ -187,11 +213,16 @@ namespace RimMind.Storyteller.Memory
             string formatted = StorytellerMemoryPromptFormatter.FormatPlayerReactions(_playerReactions, maxCount);
             if (string.IsNullOrEmpty(formatted))
             {
-                _consumedReactionsText = null;
+                if (_consumedReactionsText != null)
+                {
+                    _consumedReactionsText = null;
+                    StorytellerStateChangedEvent.Publish();
+                }
                 return string.Empty;
             }
 
             _consumedReactionsText = formatted;
+            StorytellerStateChangedEvent.Publish();
             return formatted;
         }
 
@@ -199,28 +230,33 @@ namespace RimMind.Storyteller.Memory
         {
             if (_playerReactions.Count == 0 || maxCount <= 0)
             {
-                _consumedReactionsText = null;
+                if (_consumedReactionsText != null)
+                {
+                    _consumedReactionsText = null;
+                    StorytellerStateChangedEvent.Publish();
+                }
                 return string.Empty;
             }
 
-            string text = PeekReactions(maxCount);
+            string text = StorytellerMemoryPromptFormatter.FormatPlayerReactions(_playerReactions, maxCount);
             int takeCount = System.Math.Min(maxCount, _playerReactions.Count);
             _playerReactions.RemoveRange(0, takeCount);
+            _consumedReactionsText = null;
+            StorytellerStateChangedEvent.Publish();
             return text;
         }
 
-        public void UpdateTension(IncidentCategoryDef category)
+        public void UpdateTension(IncidentCategoryDef? category)
         {
-            var factionArrival = DefDatabase<IncidentCategoryDef>.GetNamedSilentFail("FactionArrival");
-            float delta = category switch
-            {
-                var c when c == IncidentCategoryDefOf.ThreatBig => 0.25f,
-                var c when c == IncidentCategoryDefOf.ThreatSmall => 0.12f,
-                var c when c == IncidentCategoryDefOf.Misc => -0.05f,
-                var c when c == factionArrival => -0.08f,
-                _ => 0f
-            };
+            if (category == null)
+                return;
+
+            float delta = IncidentSelectionPolicy.GetTensionDeltaForCategory(category.defName);
+            if (delta == 0f)
+                return;
+
             _tensionLevel = TensionMath.ApplyDelta(_tensionLevel, delta);
+            StorytellerStateChangedEvent.Publish();
         }
 
         public void ApplyDecayAndCleanup()
@@ -228,9 +264,15 @@ namespace RimMind.Storyteller.Memory
             int now = Find.TickManager.TicksGame;
             if (_lastTensionDecayTick <= 0)
                 _lastTensionDecayTick = now;
+            float beforeTension = _tensionLevel;
+            int beforeChains = _activeChains.Count;
             DecayTension(now - _lastTensionDecayTick);
             _lastTensionDecayTick = now;
             CleanupExpiredChains();
+            if (_tensionLevel != beforeTension || _activeChains.Count != beforeChains)
+            {
+                StorytellerStateChangedEvent.Publish();
+            }
         }
 
         private void DecayTension(int ticksElapsed)
@@ -256,6 +298,7 @@ namespace RimMind.Storyteller.Memory
         public void ApplyTensionDelta(float delta)
         {
             _tensionLevel = TensionMath.ApplyDelta(_tensionLevel, delta);
+            StorytellerStateChangedEvent.Publish();
         }
 
         public void RecordChainStep(string chainId, int chainStep, int chainTotal, string nextHint, string incidentDefName, int tick, float points, string factionDefName)
@@ -286,6 +329,7 @@ namespace RimMind.Storyteller.Memory
                 chain.steps.Add(new ChainStep { incidentDefName = incidentDefName, triggeredTick = tick, completed = true });
                 _activeChains.Add(chain);
             }
+            StorytellerStateChangedEvent.Publish();
         }
 
         private void CleanupExpiredChains()

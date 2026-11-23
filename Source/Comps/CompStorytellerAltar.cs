@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using RimMind.Presentation.Api;
 using RimMind.Storyteller.UI;
 using Verse;
 
@@ -10,9 +11,13 @@ namespace RimMind.Storyteller.Comps
         {
             yield return new Command_Action
             {
-                defaultLabel = "RimMind.Storyteller.Altar.Communicate".Translate(),
-                defaultDesc = "RimMind.Storyteller.Altar.CommunicateDesc".Translate(),
-                icon = Verse.ContentFinder<UnityEngine.Texture2D>.Get("UI/StorytellerAltarIcon", reportFailure: false),
+                defaultLabel = RimMindAPI.Text.TrOr(
+                    "RimMind.Storyteller.Altar.Communicate",
+                    "Communicate with Storyteller"),
+                defaultDesc = RimMindAPI.Text.TrOr(
+                    "RimMind.Storyteller.Altar.CommunicateDesc",
+                    "Open dialogue with the AI storyteller"),
+                icon = ContentFinder<UnityEngine.Texture2D>.Get("UI/StorytellerAltarIcon", reportFailure: false),
                 action = () =>
                 {
                     var map = parent.Map;

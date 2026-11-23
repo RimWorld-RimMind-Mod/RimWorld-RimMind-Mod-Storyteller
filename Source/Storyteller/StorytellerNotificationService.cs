@@ -32,7 +32,7 @@ namespace RimMind.Storyteller
             string label = incident.def.LabelCap.ToString();
             var entry = new RequestEntry
             {
-                source = "storyteller",
+                source = StorytellerRequestIds.NotificationSource,
                 title = title,
                 description = description,
                 options = new[] { shock, excited, accept },
