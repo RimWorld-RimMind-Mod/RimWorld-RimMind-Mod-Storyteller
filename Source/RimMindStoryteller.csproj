@@ -42,17 +42,4 @@
     </Reference>
   </ItemGroup>
 
-  <Target Name="DeployToModsFolder" AfterTargets="Build"
-          Condition=" '$(RIMWORLD_DIR)' != '' ">
-    <PropertyGroup>
-      <DeployPath>$(RIMWORLD_DIR)\Mods\RimMind-Storyteller\</DeployPath>
-    </PropertyGroup>
-    <MakeDir Directories="$(DeployPath)" />
-    <Exec Command='robocopy "$(ProjectDir)..\About"        "$(DeployPath)About"     /MIR' IgnoreExitCode="true"/>
-    <Exec Command='robocopy "$(ProjectDir)..\Defs"         "$(DeployPath)Defs"      /MIR' IgnoreExitCode="true"/>
-    <Exec Command='robocopy "$(ProjectDir)..\Textures"     "$(DeployPath)Textures"  /MIR' IgnoreExitCode="true"/>
-    <Exec Command='robocopy "$(ProjectDir)..\$(GameVersion)" "$(DeployPath)$(GameVersion)" /MIR' IgnoreExitCode="true"/>
-    <Message Text="--- RimMind-Storyteller deployed to $(DeployPath) ---" Importance="high"/>
-  </Target>
-
 </Project>

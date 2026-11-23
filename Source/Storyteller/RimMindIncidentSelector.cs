@@ -43,10 +43,12 @@ namespace RimMind.Storyteller
                         incidentDef.defName,
                         incidentDef.category?.defName);
                     var faction = Find.FactionManager.AllFactions
-                        .FirstOrDefault(f => f.def.defName == result.@params.faction_hint
+                        .FirstOrDefault(f => f.def?.defName == result.@params.faction_hint
+                                          && !f.IsPlayer
+                                          && !f.defeated
                                           && (requiresHostile
                                               ? f.HostileTo(Faction.OfPlayer)
-                                              : !f.IsPlayer && !f.HostileTo(Faction.OfPlayer) && !f.defeated));
+                                              : !f.HostileTo(Faction.OfPlayer)));
                     if (faction != null) parms.faction = faction;
                 }
 

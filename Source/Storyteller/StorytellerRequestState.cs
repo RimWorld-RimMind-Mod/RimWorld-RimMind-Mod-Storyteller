@@ -72,6 +72,15 @@ namespace RimMind.Storyteller
             _generation++;
         }
 
+        public bool CancelCurrent(long token)
+        {
+            if (!IsCurrent(token))
+                return false;
+
+            CancelRequest();
+            return true;
+        }
+
         public bool Fail(long token, int tick)
         {
             if (!IsCurrent(token))

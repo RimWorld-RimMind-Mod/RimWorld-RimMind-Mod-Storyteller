@@ -1,9 +1,7 @@
 using System;
-using System.Linq;
 using LudeonTK;
 using RimMind.Presentation.Api;
 using RimMind.Storyteller.Memory;
-using RimWorld;
 using Verse;
 
 namespace RimMind.Storyteller.Debug
@@ -30,14 +28,16 @@ namespace RimMind.Storyteller.Debug
             {
                 context.Assert(memory.TensionLevel >= 0f && memory.TensionLevel <= 1f, $"Current storyteller tension level is valid 0-1 range ({memory.TensionLevel:F2})");
 
-                // 2. DialogueRecord Addition and Cleanup
+                // 2. DialogueRecord Addition and Scoped Self-Cleanup (preserves pre-existing save history)
                 int beforeCount = memory.DialogueRecords.Count;
-                memory.RecordDialogue("assistant", "Storyteller autotest greeting", Find.TickManager.TicksGame);
-                context.Assert(memory.DialogueRecords.Count == beforeCount + 1, "DialogueRecord added successfully to StorytellerMemory");
+                int probeTick = Find.TickManager?.TicksGame ?? 0;
+                const string probeRole = "assistant";
+                const string probeContent = "Storyteller autotest greeting";
+                memory.RecordDialogue(probeRole, probeContent, probeTick);
+                context.Assert(memory.DialogueRecords.Count >= Math.Min(beforeCount + 1, memory.MaxDialogueRecords), "DialogueRecord added successfully to StorytellerMemory");
 
-                // Self-cleanup
-                memory.ClearDialogueRecords();
-                context.Assert(memory.DialogueRecords.Count == 0, "Dialogue records cleanly cleared after test");
+                bool removed = memory.RemoveLastDialogueIfMatches(probeRole, probeContent, probeTick);
+                context.Assert(removed, "Autotest dialogue record cleanly removed without wiping save history");
             }
 
             // 3. TensionMath Calculations

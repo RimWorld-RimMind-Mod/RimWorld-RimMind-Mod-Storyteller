@@ -13,9 +13,9 @@ Start with `StorytellerComp_RimMindDirector.cs`. It is the RimWorld adapter and 
 
 ## Context Provider path
 
-Start at `../RimMindStorytellerMod.cs` to see the module composition entry. It delegates all five Context Provider registrations to `StorytellerContextProviderRegistrar.cs`. When you need provider details, read `StorytellerContextProviderRegistrar.cs`, then `../Extensions/StorytellerContextPolicy.cs`, `../Extensions/StorytellerContextBuilder.cs`, `../Memory/StorytellerMemory.cs`, and `RimMindAPI.Memory` in that order. The Mod entry composes the module; it does not own provider content.
+Start at `../RimMindStorytellerMod.cs` to see the module composition entry. It delegates `IncidentOutput` schema registration, both scenarios (`ScenarioIds.Storyteller` and `StorytellerRequestIds.ChatScenarioId`), and all seven Context Provider registrations to `StorytellerContextProviderRegistrar.cs`. When you need provider details, read `StorytellerRequestIds.cs`, `StorytellerContextProviderRegistrar.cs`, `../Extensions/StorytellerContextPolicy.cs`, `../Extensions/StorytellerContextBuilder.cs`, `../Memory/StorytellerMemory.cs`, and `RimMindAPI.Memory` in that order. The Mod entry composes the module; it does not own provider content.
 
-All five providers are world-scoped: the only identity guard is `ScenarioStoryteller`. Map NPCs and the `NPC-storyteller` fallback legitimately have `PawnId=0`; no Pawn lookup is needed. `StorytellerContextPolicy` only composes the custom instruction with the generated task instruction. Missing world memory or empty histories still produce no optional content.
+All providers are world-scoped and guarded strictly by scenario (`Storyteller` for incident direction vs `StorytellerChat` for Altar dialogue). Map NPCs and the `NPC-storyteller` fallback legitimately have `PawnId=0`; no Pawn lookup is needed. Missing world memory or empty histories still produce no optional content.
 
 ## Automatic flow
 

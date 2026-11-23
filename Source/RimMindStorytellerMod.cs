@@ -1,9 +1,7 @@
-using HarmonyLib;
 using RimMind.Application.Common.Interfaces.Extension;
 using RimMind.Presentation;
 using RimMind.Presentation.Api;
 using RimMind.Presentation.Settings;
-using RimMind.Storyteller.Extensions;
 using RimMind.Storyteller.Settings;
 using UnityEngine;
 using Verse;
@@ -23,7 +21,6 @@ namespace RimMind.Storyteller
 
             RimMindAPI.Extensions<ISettingsTab>().Register(new StorytellerSettingsTabAdapter());
             RimMindAPI.Extensions<IModCooldown>().Register(new StorytellerModCooldown(Settings));
-            RimMindAPI.Extensions<ISkipCheck>().Register(new StorytellerIncidentSkipCheck(Settings));
 
             StorytellerContextProviderRegistrar.RegisterAll();
 

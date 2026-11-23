@@ -8,7 +8,7 @@
 <p>
   <a href="https://rimworldgame.com/"><img src="https://img.shields.io/badge/RimWorld-1.6%20%7C%201.7-brightgreen.svg" alt="RimWorld 1.6 | 1.7"></a>
   <a href="https://github.com/RimWorld-RimMind-Mod/RimWorld-RimMind-Mod-Core"><img src="https://img.shields.io/badge/Dependency-RimMind--Core-blue.svg" alt="Dependency: RimMind-Core"></a>
-  <a href="#"><img src="https://img.shields.io/badge/Unit%20Tests-24%2B%20Passing-success.svg" alt="Unit Tests"></a>
+  <a href="#"><img src="https://img.shields.io/badge/Unit%20Tests-27%20Passing-success.svg" alt="Unit Tests"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
 </p>
 

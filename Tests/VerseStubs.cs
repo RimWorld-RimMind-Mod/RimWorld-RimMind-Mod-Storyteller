@@ -125,7 +125,15 @@ namespace RimWorld
         public bool allowIntroThreats = true;
         public bool allowViolentQuests = true;
     }
-    public sealed class Storyteller { public Difficulty difficulty { get; } = new(); }
+    public sealed class DifficultyDef
+    {
+        public string LabelCap = string.Empty;
+    }
+    public sealed class Storyteller
+    {
+        public Difficulty difficulty { get; } = new();
+        public DifficultyDef? difficultyDef { get; set; }
+    }
     public sealed class IncidentCategoryDef { public string defName = "ThreatBig"; }
     public sealed class IncidentDef
     {
@@ -369,8 +377,13 @@ namespace RimMind.Presentation.Api
         {
             public static string ScenarioStoryteller => RimMind.Application.Common.Models.Context.ScenarioIds.Storyteller;
             public static TestContextRegistry ContextKeys { get; } = new();
+            public static Dictionary<string, string> RegisteredSchemas { get; } = new(StringComparer.Ordinal);
             public static void RegisterScenario(ScenarioDescriptor descriptor)
                 => ScenarioRegistry.Register(descriptor);
+            public static void RegisterSchema(string key, string schema)
+                => RegisteredSchemas[key] = schema;
+            public static string? FindSchema(string key)
+                => RegisteredSchemas.TryGetValue(key, out string? schema) ? schema : null;
         }
         public sealed class TestContextRegistry
         {

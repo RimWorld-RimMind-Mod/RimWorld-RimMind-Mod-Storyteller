@@ -9,21 +9,30 @@ namespace RimMind.Storyteller
 {
     public class StorytellerComp_RimMindFallback : RimWorld.StorytellerComp
     {
-        private static readonly IncidentCategoryDef FactionArrivalCat =
-            DefDatabase<IncidentCategoryDef>.GetNamedSilentFail("FactionArrival");
+        private static IncidentCategoryDef? _factionArrivalCat;
+
+        private static IncidentCategoryDef? FactionArrivalCat =>
+            _factionArrivalCat ??= DefDatabase<IncidentCategoryDef>.GetNamedSilentFail(
+                IncidentSelectionPolicy.FactionArrivalCategoryDefName);
 
         public override IEnumerable<FiringIncident> MakeIntervalIncidents(IIncidentTarget target)
         {
+            if (target == null || !target.IncidentTargetTags().Contains(IncidentTargetTagDefOf.Map_PlayerHome))
+                yield break;
+
+            if (target is not Map)
+                yield break;
+
             var settings = RimMindStorytellerMod.Settings;
             if (settings == null) yield break;
 
             var mode = settings.fallbackMode;
             if (mode == FallbackMode.None) yield break;
 
-            if (StorytellerIncidentSkipCheck.ShouldSkipStorytellerIncident())
+            if (RimMindAPI.Ext.ShouldSkipStorytellerIncident())
                 yield break;
 
-            var aiComp = Find.Storyteller.storytellerComps
+            var aiComp = Find.Storyteller?.storytellerComps?
                 .OfType<StorytellerComp_RimMindDirector>()
                 .FirstOrDefault();
 
@@ -32,7 +41,7 @@ namespace RimMind.Storyteller
 
             if (RimMindAPI.Settings.IsConfigured() && settings.enableIntervalTrigger && aiComp != null)
             {
-                int now = Find.TickManager.TicksGame;
+                int now = Find.TickManager?.TicksGame ?? 0;
                 float directorMtb = settings.mtbDays;
                 int healthyThreshold = (int)(directorMtb * 60000f * 2f);
 
@@ -40,10 +49,11 @@ namespace RimMind.Storyteller
                     yield break;
             }
 
-            if (!Rand.MTBEventOccurs(GetMTBDays(mode), 60000f, 1000f))
+            FallbackProfile profile = IncidentSelectionPolicy.ResolveFallbackProfile(mode.ToString());
+            if (!Rand.MTBEventOccurs(profile.MtbDays, 60000f, 1000f))
                 yield break;
 
-            IncidentCategoryDef category = ChooseCategory(mode);
+            IncidentCategoryDef category = ResolveCategory(profile.ChooseCategorySlot(Rand.Value));
             IncidentParms parms = GenerateParms(category, target);
 
             var usable = UsableIncidentsInCategory(category, parms);
@@ -53,31 +63,13 @@ namespace RimMind.Storyteller
                 yield return new FiringIncident(def, this, parms);
         }
 
-        private float GetMTBDays(FallbackMode mode)
+        private static IncidentCategoryDef ResolveCategory(FallbackCategorySlot slot) => slot switch
         {
-            return mode switch
-            {
-                FallbackMode.Cassandra => 4.6f,
-                FallbackMode.Randy => 1.35f,
-                FallbackMode.Phoebe => 8.0f,
-                _ => 999f,
-            };
-        }
-
-        private IncidentCategoryDef ChooseCategory(FallbackMode mode)
-        {
-            return mode switch
-            {
-                FallbackMode.Phoebe => Rand.Value < 0.4f && FactionArrivalCat != null
-                    ? FactionArrivalCat
-                    : IncidentCategoryDefOf.ThreatSmall,
-                FallbackMode.Randy => Rand.Value < 0.3f
-                    ? IncidentCategoryDefOf.ThreatBig
-                    : Rand.Value < 0.4286f
-                        ? IncidentCategoryDefOf.ThreatSmall
-                        : IncidentCategoryDefOf.Misc,
-                _ => IncidentCategoryDefOf.ThreatBig,
-            };
-        }
+            FallbackCategorySlot.ThreatBig => IncidentCategoryDefOf.ThreatBig,
+            FallbackCategorySlot.ThreatSmall => IncidentCategoryDefOf.ThreatSmall,
+            FallbackCategorySlot.Misc => IncidentCategoryDefOf.Misc,
+            FallbackCategorySlot.FactionArrival => FactionArrivalCat ?? IncidentCategoryDefOf.ThreatSmall,
+            _ => IncidentCategoryDefOf.ThreatBig,
+        };
     }
 }

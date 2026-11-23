@@ -1,5 +1,5 @@
+using RimMind.Presentation.Api;
 using RimWorld;
-using RimWorld.Planet;
 using Verse;
 
 namespace RimMind.Storyteller.Memory
@@ -14,9 +14,12 @@ namespace RimMind.Storyteller.Memory
 
         public static IncidentHistoryRecord Create(IncidentDef def, IIncidentTarget target, int tick)
         {
-            string mapName = "RimMind.Storyteller.UI.UnknownMap".Translate();
+            string mapName = RimMindAPI.Text.TrOr("RimMind.Storyteller.UI.UnknownMap", "Unknown");
             if (target is Map map)
-                mapName = map.Parent?.Label ?? "RimMind.Storyteller.UI.MainBase".Translate();
+            {
+                mapName = map.Parent?.Label
+                    ?? RimMindAPI.Text.TrOr("RimMind.Storyteller.UI.MainBase", "Main Base");
+            }
 
             return new IncidentHistoryRecord
             {

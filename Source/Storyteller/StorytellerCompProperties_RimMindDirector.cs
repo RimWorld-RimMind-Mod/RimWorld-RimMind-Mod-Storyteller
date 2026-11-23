@@ -1,5 +1,3 @@
-using RimMind.Storyteller.Memory;
-
 namespace RimMind.Storyteller
 {
     public class StorytellerCompProperties_RimMindDirector : RimWorld.StorytellerCompProperties

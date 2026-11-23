@@ -8,22 +8,31 @@ using Xunit;
 namespace RimMind.Storyteller.Tests.Contracts
 {
     /// <summary>
-    /// Regression contract for B7: the cooldown key cleared by a forced request must be the
-    /// envelope ModId Core uses to store the Storyteller queue cooldown.
+    /// Regression contract for queue identity & cooldown separation:
+    /// - Incident selection uses <see cref="StorytellerRequestIds.RequestModId"/> matching <c>StorytellerModCooldown</c>.
+    /// - Altar chat uses <see cref="StorytellerRequestIds.ChatModId"/> which MUST NOT match or prefix-match
+    ///   <see cref="StorytellerRequestIds.RequestModId"/> or <see cref="StorytellerRequestIds.OwnerModId"/>
+    ///   under Core's <c>QueueCircuitBreaker.MatchesModId</c>.
     /// </summary>
     public sealed class StorytellerQueueIdentityContracts
     {
         [Fact]
-        public void Queue_cooldown_key_is_the_envelope_mod_id()
+        public void Queue_cooldown_key_and_chat_mod_id_stay_isolated()
         {
             ContractCaseRunner.Run(
-                ("incident request envelope uses the module-owned request id", () =>
+                ("incident request envelope uses the module-owned incident request id", () =>
                 {
-                    var envelope = StorytellerIncidentRequestFactory.Create("Storyteller", "{}", "NPC-storyteller");
+                    var envelope = StorytellerIncidentRequestFactory.Create("Storyteller", "{}", StorytellerRequestIds.DefaultNpcId);
                     Assert.Equal(StorytellerRequestIds.RequestModId, envelope.ModId);
                     Assert.Equal("Storyteller", envelope.ScenarioId);
-                    Assert.Equal("NPC-storyteller", envelope.NpcId);
+                    Assert.Equal(StorytellerRequestIds.DefaultNpcId, envelope.NpcId);
                     Assert.Equal(StorytellerIncidentRequestFactory.MaxTokens, envelope.MaxTokens);
+                }),
+                ("altar chat ModId never collides with incident cooldown key or OwnerModId prefix", () =>
+                {
+                    Assert.False(MatchesQueueCooldownKey(StorytellerRequestIds.ChatModId, StorytellerRequestIds.RequestModId));
+                    Assert.False(MatchesQueueCooldownKey(StorytellerRequestIds.ChatModId, StorytellerRequestIds.OwnerModId));
+                    Assert.True(MatchesQueueCooldownKey(StorytellerRequestIds.RequestModId, StorytellerRequestIds.RequestModId));
                 }),
                 ("source never clears or reads a cooldown with a literal key or diverging ModId", () =>
                 {
@@ -39,10 +48,24 @@ namespace RimMind.Storyteller.Tests.Contracts
                         string text = File.ReadAllText(file);
                         Assert.False(literalCooldownKey.IsMatch(text),
                             $"{Path.GetFileName(file)} passes a literal cooldown key; use StorytellerRequestIds.RequestModId.");
-                        foreach (Match match in literalModId.Matches(text))
-                            Assert.Equal(StorytellerRequestIds.RequestModId, match.Groups["id"].Value);
+                        Assert.False(literalModId.IsMatch(text),
+                            $"{Path.GetFileName(file)} passes a raw literal ModId; use StorytellerRequestIds constants.");
                     }
                 }));
+        }
+
+        private static bool MatchesQueueCooldownKey(string modId, string candidate)
+        {
+            if (string.Equals(modId, candidate, StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            if (modId.StartsWith(candidate, StringComparison.OrdinalIgnoreCase) && modId.Length > candidate.Length)
+            {
+                char sep = modId[candidate.Length];
+                if (sep == '.' || sep == '-' || sep == '_' || sep == ':' || sep == '/')
+                    return true;
+            }
+            return false;
         }
 
         private static string SourceRoot()
